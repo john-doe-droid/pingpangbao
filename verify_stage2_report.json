@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-18 11:55:29",
+  "generated_at": "2026-10-18 12:15:05",
   "python": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社\\.venv\\Scripts\\python.exe",
   "project_dir": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社",
   "summary": {
@@ -66,22 +66,22 @@
     {
       "name": "P2 测试全部通过",
       "status": "PASS",
-      "detail": "141 passed in 69.87s (0:01:09)"
+      "detail": "141 passed in 69.83s (0:01:09)"
     },
     {
       "name": "P1 回归测试未退化",
       "status": "PASS",
-      "detail": "52 passed in 14.64s"
+      "detail": "52 passed in 13.78s"
     },
     {
       "name": "PostgreSQL 专项测试",
       "status": "PASS",
-      "detail": "8 passed, 185 deselected in 1.29s"
+      "detail": "8 passed, 185 deselected in 1.30s"
     },
     {
       "name": "全套测试通过",
       "status": "PASS",
-      "detail": "193 passed in 83.10s (0:01:23)"
+      "detail": "193 passed in 90.80s (0:01:30)"
     },
     {
       "name": "权限不变量（独立验证）",
