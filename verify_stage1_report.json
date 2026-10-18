@@ -1,0 +1,102 @@
+{
+  "generated_at": "2026-10-18 09:58:12",
+  "python": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社\\.venv\\Scripts\\python.exe",
+  "project_dir": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社",
+  "summary": {
+    "pass": 16,
+    "fail": 0,
+    "skip": 2
+  },
+  "results": [
+    {
+      "name": "Python 版本为 3.13",
+      "status": "PASS",
+      "detail": "Python 3.13.15"
+    },
+    {
+      "name": "Django 为 5.2 LTS",
+      "status": "PASS",
+      "detail": "django=5.2.18, psycopg=3.2.13"
+    },
+    {
+      "name": "依赖版本已锁定",
+      "status": "PASS",
+      "detail": "requirements.txt 全部使用 =="
+    },
+    {
+      "name": "Django 系统检查",
+      "status": "PASS",
+      "detail": "no issues"
+    },
+    {
+      "name": "生产配置部署检查",
+      "status": "PASS",
+      "detail": "prod 配置可加载且无错误级问题"
+    },
+    {
+      "name": "模型与迁移一致",
+      "status": "PASS",
+      "detail": "无待生成迁移"
+    },
+    {
+      "name": "数据库迁移已应用",
+      "status": "PASS",
+      "detail": "全部已应用"
+    },
+    {
+      "name": "数据库为 PostgreSQL 18",
+      "status": "PASS",
+      "detail": "engine=django.db.backends.postgresql, server=18.1"
+    },
+    {
+      "name": "自动化测试全部通过",
+      "status": "PASS",
+      "detail": "52 passed in 14.48s"
+    },
+    {
+      "name": "健康检查与首页/静态资源",
+      "status": "PASS",
+      "detail": "/health/live、/health/ready、首页、静态文件均 200"
+    },
+    {
+      "name": "健康检查不泄露敏感信息",
+      "status": "PASS",
+      "detail": "响应中未出现密钥或数据库口令"
+    },
+    {
+      "name": ".env 未被 Git 跟踪",
+      "status": "PASS",
+      "detail": ".env 未跟踪，.env.example 存在"
+    },
+    {
+      "name": "容器化配置存在",
+      "status": "PASS",
+      "detail": "compose 含 PG18 镜像、internal 网络、healthcheck、重启策略"
+    },
+    {
+      "name": "Docker 实际可运行",
+      "status": "SKIP",
+      "detail": "本机未安装 docker，容器编排未在本机验证（仅校验了配置结构）"
+    },
+    {
+      "name": "生产 WSGI 入口可用",
+      "status": "PASS",
+      "detail": "首页/登录页/健康检查/哈希静态资源在生产配置下均 200"
+    },
+    {
+      "name": "Gunicorn 实际可运行",
+      "status": "SKIP",
+      "detail": "本机为 Windows，Gunicorn 依赖 fcntl（Unix 专有）无法运行；生产应用服务器仅在 Linux/Docker 上可用"
+    },
+    {
+      "name": "agent-loop 护栏未被修改",
+      "status": "PASS",
+      "detail": "全部护栏文件哈希与基线一致"
+    },
+    {
+      "name": "README 与项目一致",
+      "status": "PASS",
+      "detail": "14 个关键路径在 README 与磁盘上一致"
+    }
+  ]
+}

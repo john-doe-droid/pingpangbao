@@ -1,0 +1,39 @@
+# 构建上下文排除项：不要把这些送进镜像
+.git
+.gitignore
+.venv
+venv
+env
+
+# 敏感配置
+.env
+.env.*
+!.env.example
+
+# 本地状态与产物
+__pycache__/
+*.py[cod]
+*.egg-info/
+staticfiles/
+media/
+logs/
+*.log
+
+# 测试与缓存
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tests/
+
+# 文档与本地脚本
+*.md
+!README.md
+deploy/certbot/
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini

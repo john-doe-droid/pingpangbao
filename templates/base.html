@@ -1,0 +1,72 @@
+{% load static %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'core/favicon.svg' %}">
+  <link rel="stylesheet" href="{% static 'core/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'core/css/site.css' %}">
+</head>
+<body class="d-flex flex-column min-vh-100 bg-body-tertiary">
+
+  <nav class="navbar navbar-expand-lg bg-dark border-bottom border-body" data-bs-theme="dark">
+    <div class="container">
+      <a class="navbar-brand fw-semibold" href="{% url 'core:home' %}">
+        🏓 {{ SITE_NAME }}
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+              data-bs-target="#navMain" aria-controls="navMain"
+              aria-expanded="false" aria-label="切换导航">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navMain">
+        <ul class="navbar-nav ms-auto align-items-lg-center">
+          <li class="nav-item"><a class="nav-link" href="{% url 'core:home' %}">首页</a></li>
+          {% if user.is_authenticated %}
+            <li class="nav-item">
+              <span class="navbar-text me-lg-3">{{ user.get_short_name }}</span>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'accounts:password_change' %}">修改密码</a>
+            </li>
+            <li class="nav-item">
+              <form method="post" action="{% url 'accounts:logout' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-light btn-sm mt-2 mt-lg-0">退出登录</button>
+              </form>
+            </li>
+          {% else %}
+            <li class="nav-item">
+              <a class="btn btn-primary btn-sm mt-2 mt-lg-0" href="{% url 'accounts:login' %}">登录</a>
+            </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  {% if messages %}
+    <div class="container mt-3">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <main class="flex-grow-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-top bg-white py-3 mt-4">
+    <div class="container text-center text-body-secondary small">
+      {{ SITE_NAME }} · 内部工作统计系统
+    </div>
+  </footer>
+
+  <script src="{% static 'core/js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

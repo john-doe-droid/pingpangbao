@@ -1,0 +1,58 @@
+/* ==========================================================================
+   乒乓球社工作统计 —— 站点自有样式
+   Bootstrap 已在前面加载；这里只放项目特有的少量调整。
+   ========================================================================== */
+
+:root {
+  --pp-brand: #0d6efd;
+}
+
+body {
+  /* 中文优先字体栈，保证在 Windows / 移动端都有合适字形 */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
+    "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif;
+}
+
+.navbar-brand {
+  letter-spacing: 0.5px;
+}
+
+/* 移动端：品牌名允许收缩并省略，避免把汉堡按钮挤到第二行。
+   min-width:0 是关键 —— flex 子项默认 min-width:auto 不会收缩。 */
+@media (max-width: 767.98px) {
+  .navbar-brand {
+    min-width: 0;
+    flex-shrink: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 1rem;
+    max-width: calc(100% - 60px);   /* 给右侧 toggler 留出空间 */
+  }
+}
+
+.card {
+  border: 1px solid rgba(0, 0, 0, 0.075);
+  border-radius: 0.75rem;
+}
+
+/* 表单控件圆角与聚焦反馈，保持与卡片一致 */
+.form-control {
+  border-radius: 0.5rem;
+}
+
+.form-control:focus {
+  border-color: var(--pp-brand);
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* 移动端：内容两侧留白更紧凑，避免按钮贴边 */
+@media (max-width: 576px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .display-6 {
+    font-size: 1.6rem;
+  }
+}
