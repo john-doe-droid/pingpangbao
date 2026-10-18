@@ -1,0 +1,25 @@
+{
+  "purpose": "P2 开工前 P1 文件基线（证明未覆盖/未重写）",
+  "files": {
+    "accounts/models.py": "1d9c75c22caa26b217677e15664dc8a6680dce2975abb013b1b31c16f3bb1f0b",
+    "accounts/migrations/0001_initial.py": "8cba72970a12e22383b39f8b75090b0df91fd510df71528e3889e5807a851029",
+    "accounts/middleware.py": "2d5b4dc88df4cbc87b5e31f378b1bf58bf9e828b4fa30d9103fc2a050350afeb",
+    "accounts/views.py": "355a6bd632f55815a424633d89e90b4ac1a9aa75f4f6b3214ac23e0030822cfe",
+    "accounts/admin.py": "b164338ecf30bb3d779c92700d6bf166b1632638d64f83f1c06d1d6522ac316b",
+    "config/settings/base.py": "7b634e4b25bd408777f9664515e853780ed3c2c13375123ba74869c1c6aef530",
+    "config/settings/dev.py": "a68c516310edcfaa405e9efee681126e9427eb1c1cfe4aa5557674e471c41f6b",
+    "config/settings/prod.py": "e61620ce04f73680045bd3970c4d1fd4f607a35f3e804423e0d368bf52eadc81",
+    "config/urls.py": "941f16fbe8d3046ee4cfe9f4fa5f7aa98a2e94e573043c615fcceca0b0a7edb9",
+    "core/views.py": "c1972f669b9355a0c2ca4a53454aeb75d17c9991919b40681a42b8b4dbf915ca",
+    "core/urls.py": "f34f1cadc9bfb1a269af865aa8b38be35075103271d8d3e7bb4c4afeb7cf8833",
+    "tests/conftest.py": "96c307665454173daa969be0c27c10d0bb5fcb6b82875ef999b607fa888ce7fa",
+    "tests/test_accounts.py": "c0f8a6be899a89183fe04b46334f42596f6cf1b266f786146202345bff3559f5",
+    "tests/test_password_change.py": "eeaff9724581550507ffc8820106de5e74c919b80d1e6dd0883f91b3751a691c",
+    "tests/test_health.py": "153a78f2f0c06fd1b16092fd61326aabcc77f2a18e39b52db68c9c673480f698",
+    "tests/test_settings.py": "3fdec01fc26148909c682d1ae246c84c47cef0e7ae4d51d827a97a3156aab64e",
+    "tests/test_database.py": "ac28c61c3668b6e7f0b7bbe0254ca329d2d465345181e9a24b630f7ec3973ce6",
+    "scripts/verify_stage1.py": "3a2e440263c36664adf82f51c7ea8f099817ee54e656cfbb2e25cf3465ec5aaa",
+    "README.md": "5cc5d6acb085156dc3d84b113523d0e3a21dba8fb8675ad25be1e1d1847aa2ba",
+    "requirements.txt": "6a92e469bac731a5d052c54b3a222cfb8a07f82e1e3b4d337ced7e60211023c9"
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "generated_at": "2026-10-18 11:55:29",
+  "python": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社\\.venv\\Scripts\\python.exe",
+  "project_dir": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社",
+  "summary": {
+    "pass": 21,
+    "fail": 0,
+    "skip": 2
+  },
+  "results": [
+    {
+      "name": "Python 版本为 3.13",
+      "status": "PASS",
+      "detail": "Python 3.13.15"
+    },
+    {
+      "name": "Django 为 5.2 LTS",
+      "status": "PASS",
+      "detail": "django=5.2.18"
+    },
+    {
+      "name": "Django 系统检查",
+      "status": "PASS",
+      "detail": "no issues"
+    },
+    {
+      "name": "模型与迁移一致",
+      "status": "PASS",
+      "detail": "无待生成迁移"
+    },
+    {
+      "name": "数据库迁移已应用",
+      "status": "PASS",
+      "detail": "全部已应用"
+    },
+    {
+      "name": "数据库为 PostgreSQL 18",
+      "status": "PASS",
+      "detail": "engine=django.db.backends.postgresql, server=18.1"
+    },
+    {
+      "name": "P2 应用已注册",
+      "status": "PASS",
+      "detail": "competitions + tasks；用户模型仍为 accounts.User"
+    },
+    {
+      "name": "六个核心模型存在",
+      "status": "PASS",
+      "detail": "Competition / WorkType / TaskTemplate / CompetitionTask / TaskAssignment / ReviewerAssignment"
+    },
+    {
+      "name": "核心表与唯一索引已落库",
+      "status": "PASS",
+      "detail": "7 张核心表 + 2 个部分唯一索引"
+    },
+    {
+      "name": "P2 角色种子数据存在",
+      "status": "PASS",
+      "detail": "club_admin / member / viewer"
+    },
+    {
+      "name": "P2 路由已挂载",
+      "status": "PASS",
+      "detail": "5 个关键路径均可解析"
+    },
+    {
+      "name": "P2 测试全部通过",
+      "status": "PASS",
+      "detail": "141 passed in 69.87s (0:01:09)"
+    },
+    {
+      "name": "P1 回归测试未退化",
+      "status": "PASS",
+      "detail": "52 passed in 14.64s"
+    },
+    {
+      "name": "PostgreSQL 专项测试",
+      "status": "PASS",
+      "detail": "8 passed, 185 deselected in 1.29s"
+    },
+    {
+      "name": "全套测试通过",
+      "status": "PASS",
+      "detail": "193 passed in 83.10s (0:01:23)"
+    },
+    {
+      "name": "权限不变量（独立验证）",
+      "status": "PASS",
+      "detail": "7 条不变量全部成立（查看≠管理≠审核，审核需显式授权且不跨比赛）"
+    },
+    {
+      "name": "写操作路由存在且为 POST",
+      "status": "PASS",
+      "detail": "7 个写操作路由存在；其 GET 行为由测试逐项验证（应返回 405）"
+    },
+    {
+      "name": "P1 既有文件未被覆盖",
+      "status": "PASS",
+      "detail": "16 个 P1 文件哈希一致 + core/views.py 的 live/ready 逐字未变（其余为允许的追加与内容纠正）"
+    },
+    {
+      "name": "agent-loop 护栏未被修改",
+      "status": "PASS",
+      "detail": "10 个护栏文件哈希与基线一致"
+    },
+    {
+      "name": "未提前实现后续阶段模块",
+      "status": "PASS",
+      "detail": "无 submissions/reviews/reports 模块；未发现写死的密钥或口令"
+    },
+    {
+      "name": "Docker 实际可运行",
+      "status": "SKIP",
+      "detail": "本机未安装 docker —— 容器编排仍未在本机验证（P1 遗留事项）"
+    },
+    {
+      "name": "Gunicorn 实际可运行",
+      "status": "SKIP",
+      "detail": "本机为 Windows，Gunicorn 依赖 fcntl 无法运行（P1 遗留事项）"
+    },
+    {
+      "name": "README 与项目一致",
+      "status": "PASS",
+      "detail": "P2 相关路径与命令均已记录"
+    }
+  ]
+}

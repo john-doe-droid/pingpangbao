@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ task.name }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-8 col-xl-7">
+
+      <nav aria-label="面包屑" class="mb-2">
+        <ol class="breadcrumb small mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'tasks:my_tasks' %}">我的任务</a></li>
+          <li class="breadcrumb-item active" aria-current="page">{{ task.name }}</li>
+        </ol>
+      </nav>
+
+      {% if is_admin_view %}
+        <div class="alert alert-info small" role="alert">
+          您以管理员身份查看该任务详情，它<strong>并未分配给您本人</strong>。
+        </div>
+      {% endif %}
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-body p-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <h1 class="h5 fw-semibold mb-0 text-break">{{ task.name }}</h1>
+            {% if is_overdue %}
+              <span class="badge text-bg-danger">已逾期</span>
+            {% else %}
+              <span class="badge text-bg-success">进行中</span>
+            {% endif %}
+          </div>
+
+          <dl class="row small mb-0">
+            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">比赛名称</dt>
+            <dd class="col-7 col-sm-8 col-lg-9 mb-1">{{ competition.name }}</dd>
+
+            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">工作类型</dt>
+            <dd class="col-7 col-sm-8 col-lg-9 mb-1">{{ task.work_type.name }}</dd>
+
+            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">比赛日期</dt>
+            <dd class="col-7 col-sm-8 col-lg-9 mb-1">{{ competition.event_date|date:"Y-m-d" }}</dd>
+
+            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">截止时间</dt>
+            <dd class="col-7 col-sm-8 col-lg-9 mb-1">
+              {{ effective_deadline|date:"Y-m-d H:i" }}
+              <span class="text-body-secondary">（{{ task.deadline_source }}）</span>
+            </dd>
+
+            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">比赛状态</dt>
+            <dd class="col-7 col-sm-8 col-lg-9 mb-1">
+              {% if competition.status == 'active' %}进行中
+              {% elif competition.status == 'archived' %}已归档（停止接收新提交）
+              {% else %}草稿{% endif %}
+            </dd>
+
+            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">允许提交份数</dt>
+            <dd class="col-7 col-sm-8 col-lg-9 mb-1">{{ task.max_records_per_member }} 份</dd>
+
+            {% if task.description %}
+              <dt class="col-12 fw-normal text-body-secondary mt-2">任务说明</dt>
+              <dd class="col-12 mb-0">{{ task.description|linebreaksbr }}</dd>
+            {% endif %}
+          </dl>
+        </div>
+      </div>
+
+      {# ---------- 需要提交的材料 ---------- #}
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <h2 class="h6 fw-semibold mb-3">需要提交的材料</h2>
+          {% if material_rows %}
+            <ul class="list-unstyled mb-0">
+              {% for label, allow, require in material_rows %}
+                <li class="d-flex justify-content-between align-items-center border-bottom py-2">
+                  <span>{{ label }}</span>
+                  {% if require %}
+                    <span class="badge text-bg-primary">必填</span>
+                  {% else %}
+                    <span class="badge text-bg-light border">选填</span>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-body-secondary small mb-0">该任务无需提交材料。</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {# ---------- 提交功能占位（本阶段刻意不提供可点的提交按钮） ---------- #}
+      <div class="card shadow-sm border-secondary-subtle">
+        <div class="card-body">
+          <h2 class="h6 fw-semibold mb-2">提交工作成果</h2>
+          <div class="alert alert-secondary mb-0" role="alert">
+            <strong>提交功能将在后续阶段开放。</strong>
+            <p class="small mb-0 mt-1">
+              比赛、任务与人员分配已可用；成果提交、附件上传与审核流程属于下一阶段的内容。
+              本页暂不提供提交入口，避免出现「点了按钮却没有保存」的情况。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <a class="btn btn-outline-secondary" href="{% url 'tasks:my_tasks' %}">返回我的任务</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -56,3 +56,55 @@ body {
     font-size: 1.6rem;
   }
 }
+
+/* ==========================================================================
+   移动端触控可达性
+   --------------------------------------------------------------------------
+   在窄屏上把按钮/链接的触控目标做到 ≥44px（Apple HIG 与 WCAG 2.5.8 的
+   建议下限），否则筛选按钮、"查看详情"这类小按钮很容易点偏。
+   只在窄屏生效，桌面端保持原有紧凑外观。
+   ========================================================================== */
+@media (max-width: 767.98px) {
+  /* 小尺寸按钮：加大上下内边距，保证点得到 */
+  .btn-sm {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 普通按钮同样保证最小高度 */
+  .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 表单控件：避免移动端浏览器聚焦时自动放大（字号 <16px 会触发） */
+  .form-control,
+  .form-select {
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  /* 导航栏链接撑满行高，减少误触 */
+  .navbar-nav .nav-link {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+
+  /* 状态筛选按钮换行排列，避免在窄屏挤成一行导致过窄 */
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+}
+
+/* 卡片中的次要操作按钮在窄屏放宽一些，但不要占满整行显得笨重 */
+@media (max-width: 576px) {
+  .card-footer .btn-sm {
+    width: 100%;
+  }
+}

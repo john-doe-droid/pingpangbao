@@ -12,7 +12,10 @@ import logging
 from django.db import connection
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
+
+from core.permissions import user_is_admin
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +67,33 @@ def ready(request):
 def home(request):
     """基础首页。
 
-    本阶段刻意不实现任何业务页面（比赛/任务/提交/审核均不在范围内），
-    只验证模板渲染、静态资源加载和响应式布局可用。
+    展示当前已可用的入口。本阶段（P2）已提供比赛与任务管理；
+    工作成果提交与审核仍属后续阶段。
     """
     checks = [
-        {"name": "项目骨架", "desc": "config / accounts / core 分层已就位"},
-        {"name": "自定义用户模型", "desc": "学号登录，角色可多重，首批迁移内建立"},
-        {"name": "配置分层", "desc": "开发与生产配置分离，密钥全部来自环境变量"},
-        {"name": "PostgreSQL", "desc": "开发与生产均使用 PostgreSQL"},
-        {"name": "健康检查", "desc": "/health/live 与 /health/ready 已提供"},
-        {"name": "自动化验证", "desc": "scripts/verify_stage1.py 为统一入口"},
+        {"name": "工程底座", "desc": "config / accounts / core 分层，密钥与配置全部来自环境变量"},
+        {"name": "用户与角色", "desc": "学号登录，多角色并存，首登强制改密"},
+        {"name": "比赛管理", "desc": "创建、修改、归档；草稿不对干事开放"},
+        {"name": "任务模板", "desc": "材料要求与提交份数可页面维护，创建任务时冻结快照"},
+        {"name": "人员分配", "desc": "一项任务可分配给多名干事，历史记录保留"},
+        {"name": "审核人授权", "desc": "逐场授权；管理员身份本身不自动获得审核权"},
+        {"name": "我的任务", "desc": "干事只能看到分配给自己的任务"},
     ]
-    return render(request, "core/home.html", {"checks": checks})
+
+    if request.user.is_authenticated:
+        entries = [
+            {"label": "我的任务", "url": reverse("tasks:my_tasks"), "primary": True},
+            {"label": "比赛管理", "url": reverse("competitions:list"), "primary": False},
+        ]
+        if user_is_admin(request.user):
+            entries += [
+                {"label": "任务模板", "url": reverse("tasks_admin:template_list"), "primary": False},
+                {"label": "工作类型", "url": reverse("tasks_admin:worktype_list"), "primary": False},
+            ]
+    else:
+        entries = [{"label": "登录", "url": reverse("accounts:login"), "primary": True}]
+
+    return render(request, "core/home.html", {
+        "checks": checks,
+        "entries": entries,
+    })

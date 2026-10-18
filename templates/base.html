@@ -22,10 +22,21 @@
       </button>
       <div class="collapse navbar-collapse" id="navMain">
         <ul class="navbar-nav ms-auto align-items-lg-center">
-          <li class="nav-item"><a class="nav-link" href="{% url 'core:home' %}">首页</a></li>
           {% if user.is_authenticated %}
+            {# 干事端入口：#}
+            <li class="nav-item"><a class="nav-link" href="{% url 'tasks:my_tasks' %}">我的任务</a></li>
+
+            {# 管理端入口：仅社团管理员可见（后端另有权限校验，不依赖此处的显示控制） #}
+            {% if user.is_superuser or 'club_admin' in user.role_codes %}
+              <li class="nav-item"><a class="nav-link" href="{% url 'competitions:list' %}">比赛管理</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'tasks_admin:template_list' %}">任务模板</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'tasks_admin:worktype_list' %}">工作类型</a></li>
+            {% else %}
+              <li class="nav-item"><a class="nav-link" href="{% url 'competitions:list' %}">比赛</a></li>
+            {% endif %}
+
             <li class="nav-item">
-              <span class="navbar-text me-lg-3">{{ user.get_short_name }}</span>
+              <span class="navbar-text me-lg-3 ms-lg-2">{{ user.get_short_name }}</span>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="{% url 'accounts:password_change' %}">修改密码</a>
@@ -37,6 +48,7 @@
               </form>
             </li>
           {% else %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'core:home' %}">首页</a></li>
             <li class="nav-item">
               <a class="btn btn-primary btn-sm mt-2 mt-lg-0" href="{% url 'accounts:login' %}">登录</a>
             </li>

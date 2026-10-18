@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}比赛管理 · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h4 fw-semibold mb-0">比赛管理</h1>
+    {% if can_manage %}
+      <a class="btn btn-primary" href="{% url 'competitions:create' %}">
+        <span aria-hidden="true">＋</span> 新建比赛
+      </a>
+    {% endif %}
+  </div>
+
+  {# 状态筛选：用普通链接（GET），不做任何写操作 #}
+  <div class="mb-3 d-flex flex-wrap gap-2 filter-bar">
+    <a class="btn btn-sm {% if not current_status %}btn-dark{% else %}btn-outline-secondary{% endif %}"
+       href="{% url 'competitions:list' %}">全部</a>
+    {% for value, label in status_choices %}
+      <a class="btn btn-sm {% if current_status == value %}btn-dark{% else %}btn-outline-secondary{% endif %}"
+         href="{% url 'competitions:list' %}?status={{ value }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  {% if competitions %}
+    <div class="row g-3">
+      {% for competition in competitions %}
+        <div class="col-12 col-lg-6">
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <h2 class="h6 fw-semibold mb-1">
+                  <a class="text-decoration-none" href="{% url 'competitions:detail' competition.pk %}">
+                    {{ competition.name }}
+                  </a>
+                </h2>
+                {% if competition.status == 'draft' %}
+                  <span class="badge text-bg-secondary flex-shrink-0">草稿</span>
+                {% elif competition.status == 'active' %}
+                  <span class="badge text-bg-success flex-shrink-0">进行中</span>
+                {% else %}
+                  <span class="badge text-bg-dark flex-shrink-0">已归档</span>
+                {% endif %}
+              </div>
+
+              <dl class="row mb-0 small text-body-secondary">
+                <dt class="col-5 col-sm-4 fw-normal">比赛日期</dt>
+                <dd class="col-7 col-sm-8 mb-1">{{ competition.event_date|date:"Y-m-d" }}</dd>
+
+                <dt class="col-5 col-sm-4 fw-normal">默认截止</dt>
+                <dd class="col-7 col-sm-8 mb-1">{{ competition.default_deadline|date:"Y-m-d H:i" }}</dd>
+
+                <dt class="col-5 col-sm-4 fw-normal">任务数</dt>
+                <dd class="col-7 col-sm-8 mb-1">{{ competition.task_count }}</dd>
+
+                <dt class="col-5 col-sm-4 fw-normal">创建人</dt>
+                <dd class="col-7 col-sm-8 mb-0">
+                  {% if competition.created_by %}{{ competition.created_by.get_short_name }}{% else %}—{% endif %}
+                </dd>
+              </dl>
+            </div>
+            <div class="card-footer bg-white border-top-0 pt-0">
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{% url 'competitions:detail' competition.pk %}">查看详情</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body text-center py-5 text-body-secondary">
+        <p class="mb-2">当前没有符合条件的比赛。</p>
+        {% if can_manage %}
+          <a class="btn btn-primary btn-sm" href="{% url 'competitions:create' %}">创建第一场比赛</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

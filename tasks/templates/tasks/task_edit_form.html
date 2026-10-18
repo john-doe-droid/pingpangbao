@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-8 col-xl-7">
+
+      <nav aria-label="面包屑" class="mb-2">
+        <ol class="breadcrumb small mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛管理</a></li>
+          <li class="breadcrumb-item">
+            <a href="{% url 'competitions:detail' competition.pk %}">{{ competition.name }}</a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page">修改任务</li>
+        </ol>
+      </nav>
+
+      <div class="alert alert-warning small" role="alert">
+        这里<strong>不能修改材料要求</strong>。材料规则在任务创建时就已冻结，
+        改动它会让已经领取任务的干事要求悄悄变化。
+        如需调整规则，请停用本任务并用新模板另建一个。
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+          <h1 class="h5 fw-semibold mb-3">{{ page_title }}</h1>
+
+          <dl class="row small mb-4">
+            <dt class="col-4 col-sm-3 fw-normal text-body-secondary">来源模板</dt>
+            <dd class="col-8 col-sm-9">{{ task.template.name }}</dd>
+            <dt class="col-4 col-sm-3 fw-normal text-body-secondary">工作类型</dt>
+            <dd class="col-8 col-sm-9">{{ task.work_type.name }}</dd>
+            <dt class="col-4 col-sm-3 fw-normal text-body-secondary">生效材料要求</dt>
+            <dd class="col-8 col-sm-9 mb-0">{{ task.snapshot_summary }}</dd>
+          </dl>
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+            {% for field in form %}
+              <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}
+                  <div class="text-danger small mt-1">{{ error }}</div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary">保存修改</button>
+              <a class="btn btn-outline-secondary"
+                 href="{% url 'tasks_admin:task_detail' task.pk %}">取消</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

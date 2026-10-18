@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}我的任务 · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h4 fw-semibold mb-0">我的任务</h1>
+    <div class="small text-body-secondary">
+      共 {{ total }} 项{% if overdue_count %} · <span class="text-danger">已逾期 {{ overdue_count }} 项</span>{% endif %}
+    </div>
+  </div>
+
+  {% if rows %}
+    <div class="row g-3">
+      {% for row in rows %}
+        <div class="col-12 col-lg-6">
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <h2 class="h6 fw-semibold mb-0 text-break">{{ row.task.name }}</h2>
+                {% if row.is_overdue %}
+                  <span class="badge text-bg-danger flex-shrink-0">已逾期</span>
+                {% else %}
+                  <span class="badge text-bg-success flex-shrink-0">进行中</span>
+                {% endif %}
+              </div>
+
+              <p class="small mb-2">
+                <span class="badge text-bg-light border">{{ row.task.work_type.name }}</span>
+                <span class="text-body-secondary">{{ row.competition.name }}</span>
+              </p>
+
+              <dl class="row small mb-2">
+                <dt class="col-5 col-sm-4 fw-normal text-body-secondary">比赛日期</dt>
+                <dd class="col-7 col-sm-8 mb-1">{{ row.competition.event_date|date:"Y-m-d" }}</dd>
+
+                <dt class="col-5 col-sm-4 fw-normal text-body-secondary">截止时间</dt>
+                <dd class="col-7 col-sm-8 mb-1">
+                  {{ row.effective_deadline|date:"Y-m-d H:i" }}
+                </dd>
+
+                <dt class="col-5 col-sm-4 fw-normal text-body-secondary">比赛状态</dt>
+                <dd class="col-7 col-sm-8 mb-0">
+                  {% if row.competition.status == 'active' %}进行中
+                  {% elif row.competition.status == 'archived' %}已归档
+                  {% else %}草稿{% endif %}
+                </dd>
+              </dl>
+
+              {% if row.task.description %}
+                <p class="small text-body-secondary mb-0">
+                  {{ row.task.description|truncatechars:70 }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="card-footer bg-white">
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{% url 'tasks:my_task_detail' row.task.pk %}">查看任务详情</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body text-center py-5 text-body-secondary">
+        <p class="mb-0">目前没有分配给你的任务。</p>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

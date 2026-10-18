@@ -74,6 +74,9 @@ DJANGO_APPS = [
 LOCAL_APPS = [
     "accounts",
     "core",
+    # P2 新增业务模块
+    "competitions",
+    "tasks",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}任务模板 · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h1 class="h4 fw-semibold mb-0">任务模板</h1>
+      <p class="small text-body-secondary mb-0">
+        模板定义「一类工作要交什么材料」。在比赛中添加任务时从这里选。
+      </p>
+    </div>
+    {% if can_manage %}
+      <a class="btn btn-primary" href="{% url 'tasks_admin:template_create' %}">＋ 新建模板</a>
+    {% endif %}
+  </div>
+
+  <div class="mb-3 d-flex flex-wrap gap-2 filter-bar">
+    <a class="btn btn-sm {% if not current_active %}btn-dark{% else %}btn-outline-secondary{% endif %}"
+       href="{% url 'tasks_admin:template_list' %}">全部</a>
+    <a class="btn btn-sm {% if current_active == '1' %}btn-dark{% else %}btn-outline-secondary{% endif %}"
+       href="{% url 'tasks_admin:template_list' %}?active=1">仅启用</a>
+    <a class="btn btn-sm {% if current_active == '0' %}btn-dark{% else %}btn-outline-secondary{% endif %}"
+       href="{% url 'tasks_admin:template_list' %}?active=0">仅停用</a>
+  </div>
+
+  {% if templates %}
+    <div class="row g-3">
+      {% for template in templates %}
+        <div class="col-12 col-lg-6">
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <h2 class="h6 fw-semibold mb-0 text-break">{{ template.name }}</h2>
+                {% if template.is_active %}
+                  <span class="badge text-bg-success flex-shrink-0">启用</span>
+                {% else %}
+                  <span class="badge text-bg-secondary flex-shrink-0">已停用</span>
+                {% endif %}
+              </div>
+
+              <p class="small mb-2">
+                <span class="badge text-bg-light border">{{ template.work_type.name }}</span>
+                <span class="badge text-bg-light border">每人 {{ template.max_records_per_member }} 份</span>
+              </p>
+
+              <p class="small text-body-secondary mb-2">
+                <strong>材料要求：</strong>{{ template.snapshot_summary }}
+              </p>
+
+              {% if template.description %}
+                <p class="small text-body-secondary mb-2">{{ template.description|truncatechars:80 }}</p>
+              {% endif %}
+
+              <p class="small text-body-secondary mb-0">
+                已被 {{ template.used_count }} 个比赛任务使用
+              </p>
+            </div>
+
+            {% if can_manage %}
+              <div class="card-footer bg-white d-flex flex-wrap gap-1">
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="{% url 'tasks_admin:template_update' template.pk %}">编辑</a>
+                <form method="post" action="{% url 'tasks_admin:template_toggle' template.pk %}">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="btn btn-sm {% if template.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                    {% if template.is_active %}停用{% else %}启用{% endif %}
+                  </button>
+                </form>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body text-center py-5 text-body-secondary">
+        <p class="mb-2">还没有任务模板。</p>
+        {% if can_manage %}
+          <a class="btn btn-primary btn-sm" href="{% url 'tasks_admin:template_create' %}">创建第一个模板</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  <p class="small text-body-secondary mt-3 mb-0">
+    修改模板<strong>不会</strong>改变已经创建的比赛任务 —— 那些任务在创建时就冻结了当时的规则快照。
+  </p>
+
+</div>
+{% endblock %}
