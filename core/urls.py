@@ -10,6 +10,9 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("health/live", views.live, name="health_live"),
     path("health/ready", views.ready, name="health_ready"),
+    # P3：私有附件下载。刻意**不**放在 /static/ 或 /media/ 下，
+    # 因此不会被 Nginx/WhiteNoise 静态服务绕过鉴权。
+    path("files/<str:key>", views.private_file, name="private_file"),
     # 浏览器默认会请求 /favicon.ico；重定向到我们提供的 SVG 图标，
     # 避免日志里出现无意义的 404。
     path(

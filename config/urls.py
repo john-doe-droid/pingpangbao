@@ -23,5 +23,9 @@ urlpatterns = [
     path("my/tasks/", include("tasks.urls")),
     # 管理端：工作类型、模板、任务与分配
     path("manage/tasks/", include("tasks.urls_admin")),
+    # P3 干事端 + 审核端：/my/submissions/...
+    path("my/submissions/", include("submissions.urls")),
+    # P3 管理端：/manage/submissions/...
+    path("manage/submissions/", include("submissions.urls_admin")),
     path("", include("core.urls")),
 ]

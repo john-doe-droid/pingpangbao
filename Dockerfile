@@ -36,9 +36,26 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DJANGO_SETTINGS_MODULE=config.settings.prod \
     PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# 运行期只需要 PostgreSQL 客户端库；不要编译器
+# 运行期依赖。
+#
+# 【依据：对 Pillow 13.0.0 的 manylinux wheel 做了 ELF 依赖检查，非猜测】
+#   pillow-13.0.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+#
+#   * wheel **自带**以下库（放在 pillow.libs/ 内并 rpath 引用）：
+#       libjpeg-*.so.62.4.0   libtiff-*.so.6.3.0    libopenjp2-*.so.2.5.4
+#       libwebp-*.so.7.2.0    libpng16-*.so.16.58.0 libfreetype / harfbuzz / lcms2 …
+#     ⇒ 因此**不需要**安装 libjpeg62-turbo（装了也不会被用到，属于多余依赖）。
+#
+#   * PIL/_imaging*.so 的 DT_NEEDED 里存在 `libz.so.1`，而 wheel **未自带** zlib
+#     ⇒ 必须由系统提供 ⇒ 安装 zlib1g。
+#     （JPEG 编码依赖 zlib；缺它会在容器内报 ImportError/解码失败，
+#       而本地 Windows 版 Pillow 自带 zlib，所以本地测不出来。）
+#
+#   * libpq5：psycopg 连接 PostgreSQL 需要。
+#   * curl：容器 HEALTHCHECK 用。
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
+        zlib1g \
         curl \
     && rm -rf /var/lib/apt/lists/*
 

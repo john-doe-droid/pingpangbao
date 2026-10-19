@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}我的工作记录 · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h4 fw-semibold mb-0">我的工作记录</h1>
+    <a class="btn btn-outline-secondary" href="{% url 'tasks:my_tasks' %}">我的任务</a>
+  </div>
+
+  {# ---------- 可提交的任务（含剩余额度）---------- #}
+  {% if task_rows %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold">可以提交的任务</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th scope="col">任务</th>
+                <th scope="col" class="d-none d-md-table-cell">比赛</th>
+                <th scope="col" class="text-center">已提交 / 上限</th>
+                <th scope="col" class="text-end">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in task_rows %}
+                <tr>
+                  <td>
+                    <span class="fw-semibold">{{ row.task.name }}</span>
+                    <div class="small text-body-secondary">
+                      {{ row.task.work_type.name }}
+                      {% if row.task.is_overdue %}
+                        <span class="badge text-bg-danger ms-1">已逾期</span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="d-none d-md-table-cell text-body-secondary small">{{ row.competition.name }}</td>
+                  <td class="text-center">
+                    <span class="badge {% if row.remaining %}text-bg-light border{% else %}text-bg-secondary{% endif %}">
+                      {{ row.used }} / {{ row.limit }}
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    {% if row.remaining %}
+                      <a class="btn btn-sm btn-primary"
+                         href="{% url 'submissions:submit_new' row.task.pk %}">提交成果</a>
+                    {% else %}
+                      <span class="small text-body-secondary">已达上限</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer bg-white small text-body-secondary">
+        逾期仍然可以提交，但会被标记为「逾期」。修改被退回的记录不占用新增次数。
+      </div>
+    </div>
+  {% endif %}
+
+  {# ---------- 我的记录列表 ---------- #}
+  {% if rows %}
+    <div class="row g-3">
+      {% for row in rows %}
+        <div class="col-12 col-lg-6">
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <h2 class="h6 fw-semibold mb-0 text-break">{{ row.task.name }}</h2>
+                {% if row.submission.status == 'pending' %}
+                  <span class="badge text-bg-warning flex-shrink-0">待审核</span>
+                {% elif row.submission.status == 'needs_revision' %}
+                  <span class="badge text-bg-danger flex-shrink-0">退回修改</span>
+                {% else %}
+                  <span class="badge text-bg-success flex-shrink-0">审核通过</span>
+                {% endif %}
+              </div>
+
+              <p class="small text-body-secondary mb-2">
+                {{ row.competition.name }}
+                <span class="ms-1">· 第 {{ row.version.version_no|default:1 }} 版</span>
+                {% if row.version.is_overdue %}
+                  <span class="badge text-bg-danger ms-1">逾期提交</span>
+                {% endif %}
+              </p>
+
+              <p class="small mb-0 text-body-secondary">
+                提交于 {{ row.submission.created_at|date:"Y-m-d H:i" }}
+              </p>
+            </div>
+            <div class="card-footer bg-white d-flex flex-wrap gap-2">
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{% url 'submissions:detail' row.submission.pk %}">查看详情</a>
+              {% if row.submission.status == 'needs_revision' %}
+                <a class="btn btn-sm btn-primary"
+                   href="{% url 'submissions:submit_revision' row.submission.pk %}">修改并重新提交</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body text-center py-5 text-body-secondary">
+        <p class="mb-0">还没有提交过工作记录。</p>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -45,3 +45,34 @@ def log_action(request, action, target=None, detail=""):
         detail=detail,
         ip_address=_client_ip(request),
     )
+
+
+def log_action_for_user(user, action, target=None, detail="", request=None):
+    """显式指定操作人的审计写入。
+
+    服务层可能在没有 HTTP request 的场景下被调用（管理命令、测试、
+    后台任务），此时用 `log_action(request, ...)` 会丢掉操作人。
+    本函数让调用方直接给出 actor。
+
+    `core.AuditLog` 才是唯一的审计表 —— 本函数不另建日志体系。
+    """
+    target_type = ""
+    target_id = ""
+    target_repr = ""
+    if target is not None:
+        target_type = target.__class__.__name__
+        target_id = str(getattr(target, "pk", "") or "")
+        try:
+            target_repr = str(target)[:200]
+        except Exception:  # noqa: BLE001
+            target_repr = ""
+
+    return AuditLog.objects.create(
+        actor=user if (user is not None and getattr(user, "is_authenticated", False)) else None,
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        target_repr=target_repr,
+        detail=detail,
+        ip_address=_client_ip(request),
+    )

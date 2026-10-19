@@ -64,6 +64,72 @@ def ready(request):
     )
 
 
+def private_file(request, key):
+    """私有附件下载（P3）。
+
+    三重保护：
+      1. 必须登录 —— 匿名一律 403（附件不是公开资源）；
+      2. token 必须有效且**未过期** —— 由 core.storage.verify_download_token 校验；
+      3. 必须对该附件有查看权限 —— 跨用户访问被拒。
+
+    注意：本视图**不**位于 /static/ 或 /media/ 之下，因此不会被 Nginx
+    或 WhiteNoise 直接服务；私有目录 PRIVATE_MEDIA_ROOT 也不在 STATIC_ROOT 内。
+    """
+    from django.http import FileResponse, Http404
+    from django.core.exceptions import PermissionDenied
+
+    from core.storage import get_storage, verify_download_token
+
+    if not getattr(request.user, "is_authenticated", False):
+        raise PermissionDenied("请先登录后再下载附件。")
+
+    # token 校验：无效或被篡改 → 拒绝；已过期 → 拒绝
+    token = request.GET.get("token", "")
+    token_key = verify_download_token(token) if token else None
+    if token_key is None:
+        raise PermissionDenied("下载链接无效或已过期，请回到页面重新获取。")
+    # token 绑定的对象必须与 URL 中的一致，防止用 A 的 token 取 B 的文件
+    if token_key != key:
+        raise PermissionDenied("下载链接与目标文件不匹配。")
+
+    # 权限校验：先按对象键找到附件，再判断该用户能否查看
+    from submissions.models import Attachment
+    from submissions.permissions import can_view_attachment
+
+    attachment = (
+        Attachment.objects
+        .select_related("version", "version__submission",
+                        "version__submission__assignment",
+                        "version__submission__assignment__task",
+                        "version__submission__assignment__task__competition",
+                        "version__submission__assignment__member")
+        .filter(storage_key=key)
+        .first()
+    )
+    if attachment is None:
+        raise Http404("附件不存在。")
+    if not can_view_attachment(request.user, attachment):
+        raise PermissionDenied("您没有权限访问该附件。")
+
+    store = get_storage()
+    local_path = store.open_local_path(key)
+
+    download_name = request.GET.get("name") or attachment.original_name or key
+    # 去掉可能影响响应头的字符
+    download_name = download_name.replace('"', "").replace("\r", "").replace("\n", "")
+
+    if local_path is not None:
+        return FileResponse(
+            open(local_path, "rb"),
+            as_attachment=True,
+            filename=download_name,
+        )
+
+    # COS 等非本地后端在此场景应改用预签名直链；走到这里说明实现有遗漏
+    logger.error("存储后端没有本地路径，无法直接下发：%s", key)
+    raise Http404("该附件无法通过此方式下载，请重新获取下载链接。")
+
+
 def home(request):
     """基础首页。
 

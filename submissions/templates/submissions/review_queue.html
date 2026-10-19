@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}待审核记录 · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <h1 class="h4 fw-semibold mb-1">待审核记录</h1>
+  <p class="small text-body-secondary mb-3">
+    只显示您被授权审核的比赛下的记录；您自己提交的记录不会出现在这里。
+  </p>
+
+  {% if not competitions %}
+    <div class="alert alert-info" role="alert">
+      您目前不是任何比赛的审核人。审核权需要由管理员逐场授权。
+    </div>
+  {% endif %}
+
+  {# ---------- 待审核 ---------- #}
+  <h2 class="h6 fw-semibold mt-4 mb-2">待审核（{{ pending|length }}）</h2>
+  {% if pending %}
+    <div class="row g-3">
+      {% for sub in pending %}
+        <div class="col-12 col-lg-6">
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <h3 class="h6 fw-semibold mb-0 text-break">{{ sub.task.name }}</h3>
+                {% if sub.current_version.is_overdue %}
+                  <span class="badge text-bg-danger flex-shrink-0">逾期提交</span>
+                {% endif %}
+              </div>
+              <p class="small mb-2">
+                {{ sub.competition.name }} · {{ sub.task.work_type.name }}
+              </p>
+              <p class="small text-body-secondary mb-0">
+                提交人：{{ sub.assignment.member.real_name }}
+                （{{ sub.assignment.member.student_id }}）
+                <br>第 {{ sub.current_version.version_no|default:1 }} 版 ·
+                {{ sub.current_version.submitted_at|date:"Y-m-d H:i" }}
+              </p>
+            </div>
+            <div class="card-footer bg-white">
+              <a class="btn btn-sm btn-primary" href="{% url 'submissions:review_submission' sub.pk %}">
+                查看并审核
+              </a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-body-secondary small">当前没有待审核的记录。</p>
+  {% endif %}
+
+  {# ---------- 已处理 ---------- #}
+  {% if others %}
+    <h2 class="h6 fw-semibold mt-4 mb-2">已处理（{{ others|length }}）</h2>
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th scope="col">任务</th>
+                <th scope="col" class="d-none d-md-table-cell">提交人</th>
+                <th scope="col">状态</th>
+                <th scope="col" class="text-end">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for sub in others %}
+                <tr>
+                  <td>
+                    <span class="fw-semibold">{{ sub.task.name }}</span>
+                    <div class="small text-body-secondary">{{ sub.competition.name }}</div>
+                  </td>
+                  <td class="d-none d-md-table-cell small">{{ sub.assignment.member.real_name }}</td>
+                  <td>
+                    {% if sub.status == 'approved' %}
+                      <span class="badge text-bg-success">已通过</span>
+                    {% else %}
+                      <span class="badge text-bg-danger">已退回</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{% url 'submissions:review_submission' sub.pk %}">查看</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

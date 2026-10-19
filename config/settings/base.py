@@ -77,6 +77,9 @@ LOCAL_APPS = [
     # P2 新增业务模块
     "competitions",
     "tasks",
+    # P3 新增业务模块
+    "submissions",
+    "reviews",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
@@ -188,3 +191,42 @@ PASSWORD_CHANGE_REQUIRED_EXEMPT_PREFIXES = [
 
 # 站点元信息（模板使用）
 SITE_NAME = env("SITE_NAME", "中国农业大学乒乓球社工作统计")
+
+# ---------------------------------------------------------------------------
+# P3：上传与配额上限（集中配置，视图里不再写死数字）
+# 生产可用环境变量覆盖，见 .env.example
+# ---------------------------------------------------------------------------
+UPLOAD_LIMITS = {
+    # 单文件输入上限（作用于用户上传的原始文件）
+    "image_max_bytes": int(env("UPLOAD_IMAGE_MAX_BYTES", str(10 * 1024 * 1024))),
+    "file_max_bytes": int(env("UPLOAD_FILE_MAX_BYTES", str(50 * 1024 * 1024))),
+    "video_max_bytes": int(env("UPLOAD_VIDEO_MAX_BYTES", str(300 * 1024 * 1024))),
+    # 个人图片配额（每用户全局累计）
+    "images_per_user": int(env("UPLOAD_IMAGES_PER_USER", "50")),
+    "image_bytes_per_user": int(
+        env("UPLOAD_IMAGE_BYTES_PER_USER", str(100 * 1024 * 1024))
+    ),
+    # 图片处理参数
+    "image_max_edge": int(env("UPLOAD_IMAGE_MAX_EDGE", "1280")),
+    "image_quality": int(env("UPLOAD_IMAGE_QUALITY", "82")),
+    "thumb_edge": int(env("UPLOAD_THUMB_EDGE", "400")),
+    "thumb_quality": int(env("UPLOAD_THUMB_QUALITY", "78")),
+    # 预签名下载 URL 有效期（秒）
+    "presign_expires_seconds": int(env("COS_PRESIGN_EXPIRES", "300")),
+}
+
+# 私有附件目录：**不在** STATIC_ROOT / MEDIA_ROOT 之下，
+# 因此不会被 Nginx 或 WhiteNoise 直接服务，必须经过鉴权视图下发。
+PRIVATE_MEDIA_ROOT = Path(env("PRIVATE_MEDIA_ROOT", str(BASE_DIR / "private_media")))
+
+# 私有存储后端：'local' 或 'cos'。生产必须为 'cos'（prod.py 会强制校验）。
+PRIVATE_STORAGE_BACKEND = env("PRIVATE_STORAGE_BACKEND", "local")
+
+# 腾讯云 COS 配置（仅在 PRIVATE_STORAGE_BACKEND=cos 时使用）
+COS_CONFIG = {
+    "region": env("COS_REGION", ""),
+    "bucket": env("COS_BUCKET", ""),
+    "secret_id": env("COS_SECRET_ID", ""),
+    "secret_key": env("COS_SECRET_KEY", ""),
+    "scheme": env("COS_SCHEME", "https"),
+}

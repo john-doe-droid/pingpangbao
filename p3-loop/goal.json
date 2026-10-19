@@ -1,0 +1,23 @@
+{
+  "objective": "在乒乓球社 Django 项目上实现工作成果提交与审核闭环：版本化提交、版本级附件、不可覆盖的审核记录、基于 PostgreSQL 行级锁的提交次数与图片配额并发控制，以及图片处理模块与私有存储适配层。",
+  "acceptance": [
+    "tests/p3 全部通过（图片纯逻辑 / 配额 / 提交审核 / 存储 / 并发）",
+    "P1 与 P2 既有测试全部保持通过，无删除、无放宽断言",
+    "scripts/verify_stage3.py 正常路径退出码 0，人为失败时非零",
+    "core/imaging.py 的魔数+解码双重校验、EXIF 方向、白底、1280 主图、400 方缩略图均实测生效",
+    "提交次数与图片配额在真实并发下不超额",
+    "审核：退回必填理由、不能审自己、并发只一个有效结果、重新审核保留原历史",
+    "私有附件匿名不可直取、跨用户被拒、预签名链接到期失效",
+    "生产缺 COS 配置时报错而非回退本地"
+  ],
+  "how_to_verify": "python scripts/verify_stage3.py（退出码 0 表示达标）",
+  "runtime_expectation": {
+    "name": "P3_ACCEPTANCE_TOKEN",
+    "note": "由驱动器运行时生成、只经环境变量下发，工作区内搜不到"
+  },
+  "budget": {
+    "max_rounds": 5,
+    "max_tokens_total": 900000
+  },
+  "created_at": "2026-10-18"
+}

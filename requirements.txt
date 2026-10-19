@@ -27,3 +27,13 @@ pytest-django==4.11.1
 
 # --- 代码质量（可选但已锁版本）---
 ruff==0.14.3
+
+# --- P3：图片处理（魔数检测 / EXIF 方向 / 压缩 / 缩略图）---
+# 13.0.0 已实测在 Python 3.13 下可用，且 WebP / JPEG / zlib 支持齐备
+Pillow==13.0.0
+
+# --- P3：腾讯云 COS 私有对象存储 ---
+# 1.9.44 已实测在 Python 3.13 下可导入，get_presigned_url / upload_file 可用
+# 注意：SDK 元数据声明的 certifi<=2021.10.8 / requests<=2.27.1 是旧上限，
+# 实际解析到的是较新版本且工作正常（已实测），此处锁定实际验证过的版本。
+cos-python-sdk-v5==1.9.44

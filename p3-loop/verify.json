@@ -1,0 +1,7 @@
+{
+  "command": "\"$PY\" scripts/verify_stage3.py",
+  "cwd": ".",
+  "timeoutMs": 1800000,
+  "maxBlocks": 3,
+  "note": "$PY 由闸门替换为当前解释器路径。指向 P3 自己的验收入口，不复用 P2 的。"
+}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-7 col-xl-6">
+
+      <nav aria-label="面包屑" class="mb-2">
+        <ol class="breadcrumb small mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'submissions:review_queue' %}">待审核记录</a></li>
+          <li class="breadcrumb-item">
+            <a href="{% url 'submissions:review_submission' submission.pk %}">审核</a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page">发起重新审核</li>
+        </ol>
+      </nav>
+
+      <div class="alert alert-warning small" role="alert">
+        <strong>这条记录已经审核通过。</strong>
+        重新审核会把状态改回「待审核」，并<strong>完整保留</strong>原来的通过记录与全部历史
+        —— 不会删除或覆盖任何既有审核结果。
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+          <h1 class="h5 fw-semibold mb-1">发起重新审核</h1>
+          <p class="small text-body-secondary mb-3">
+            {{ submission.task.name }} · {{ submission.competition.name }} ·
+            提交人 {{ submission.assignment.member.real_name }}
+          </p>
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="{{ form.reopen_reason.id_for_label }}" class="form-label">
+                {{ form.reopen_reason.label }} <span class="text-danger">*</span>
+              </label>
+              {{ form.reopen_reason }}
+              {% for error in form.reopen_reason.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            </div>
+            <div class="mb-4">
+              <label for="{{ form.comment.id_for_label }}" class="form-label">
+                {{ form.comment.label }}
+              </label>
+              {{ form.comment }}
+            </div>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-warning">确认发起重新审核</button>
+              <a class="btn btn-outline-secondary"
+                 href="{% url 'submissions:review_submission' submission.pk %}">取消</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
