@@ -51,9 +51,16 @@ services:
       POSTGRES_PORT: "5432"
       # 由反向代理终止 TLS，因此容器内不强制跳转 HTTPS
       DJANGO_HTTPS_ENABLED: "${DJANGO_HTTPS_ENABLED:-true}"
+      # P3：私有附件存储后端。生产必须为 cos（prod.py 会强制校验），
+      # 缺 COS 凭据时会在构造存储时报错，不会静默回退本地磁盘。
+      # 如需在本机用容器跑 local 后端做联调，可显式覆盖为 local。
+      PRIVATE_STORAGE_BACKEND: "${PRIVATE_STORAGE_BACKEND:-cos}"
+      PRIVATE_MEDIA_ROOT: "/app/private_media"
     volumes:
       - static:/app/staticfiles
       - media:/app/media
+      # P3：私有附件目录。用 local 后端时必须持久化，否则容器重建后附件丢失
+      - private_media:/app/private_media
       - applogs:/app/logs
     networks:
       - backend
@@ -77,6 +84,9 @@ services:
       - ./deploy/nginx/pingpong.conf:/etc/nginx/conf.d/default.conf:ro
       - static:/app/staticfiles:ro
       - media:/app/media:ro
+      # 注意：私有附件**不**给 nginx 挂载 —— 它必须经过 Django 鉴权后下发，
+      # 不能像 static/media 那样被反代直接服务。
+
       - ./deploy/certbot/www:/var/www/certbot:ro
       - ./deploy/certbot/conf:/etc/letsencrypt:ro
     networks:
@@ -91,6 +101,7 @@ volumes:
   pgdata:
   static:
   media:
+  private_media:      # P3：私有附件（local 后端时持久化）
   applogs:
 
 networks:

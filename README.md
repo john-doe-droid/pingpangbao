@@ -919,6 +919,26 @@ P3+ 将新增（每个自带 `models.py / views.py / urls.py / tests`）：
 生产环境**必须**配置 COS：如果缺配置，系统会**直接报错**，
 不会偷偷把附件写到服务器磁盘上（那会让"私有存储"形同虚设）。
 
+### 13.5 上传失败时的清理
+
+COS 不在数据库事务里，因此「文件已上传、但写库失败」时需要把文件删掉。
+如果**删除也失败**（网络抖动等），系统会把该文件记进「待清理」名单 ——
+**不会假装已经清理**。管理员可随时查看与重试：
+
+```powershell
+# 先看看有哪些待清理（不删除任何东西）
+.\.venv\Scripts\python.exe manage.py cleanup_orphans --dry-run
+
+# 真正重试删除
+.\.venv\Scripts\python.exe manage.py cleanup_orphans
+
+# 只处理 7 天前的
+.\.venv\Scripts\python.exe manage.py cleanup_orphans --older-than 7
+```
+
+> 命令会自动跳过**仍被正常记录引用**的文件，不会误删有效附件。
+> 管理端「工作记录管理」页顶部也会提示待清理数量。
+
 #### 配置 COS 的步骤
 
 1. 在腾讯云创建**私有读写**的 Bucket（不要开公有读）

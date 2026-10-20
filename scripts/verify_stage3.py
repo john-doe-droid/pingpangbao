@@ -738,8 +738,9 @@ def check_previous_files_not_rewritten():
         #   core/audit.py      —— 新增 log_action_for_user（服务层无 request 时用）
         #   core/urls.py       —— 挂载私有文件下载路由
         "config/settings/prod.py", "core/audit.py", "core/urls.py",
-        # 部署配置按 P3 要求调整（Pillow 运行依赖 / 请求体上限）
-        "Dockerfile", "deploy/nginx/pingpong.conf",
+        # 部署配置按 P3 要求调整（Pillow 运行依赖 / 请求体上限 /
+        # compose 挂载私有附件卷并传入存储后端）
+        "Dockerfile", "deploy/nginx/pingpong.conf", "docker-compose.yml",
     }
     FUNC_GUARDED = {"core/views.py": ["live", "ready"]}
 
@@ -833,9 +834,10 @@ def check_scope():
         record("未越界实现后续阶段", FAIL, "发现越界模块：%s" % found)
         return
     # 代码里不应出现积分/报表相关实现
+    # 排除本脚本自身：它包含用于检测的关键字，扫自己会误报
     code, out = run(["git", "grep", "-nE",
                      r"(contribution_points|excel_export|积分排名)",
-                     "--", "*.py"])
+                     "--", "*.py", ":!scripts/verify_stage3.py"])
     hits = [l for l in out.splitlines() if l.strip()]
     if hits:
         record("未越界实现后续阶段", FAIL, "发现越界实现：%s" % hits[:3])
@@ -949,6 +951,91 @@ def check_real_cos():
         record("真实 COS 链路", PASS, "上传 / 存在性 / 读取 / 预签名 / 删除 均成功")
 
 
+def check_orphan_command():
+    """README 承诺的孤立对象清理命令真实存在且可用。
+
+    这条检查来自一次自查：早期 README 写了「可用管理命令重试删除」，
+    但那个命令实际并不存在 —— 文档承诺了却没实现。
+    本检查确保这种不一致不会再出现。
+    """
+    readme = BASE_DIR / "README.md"
+    if not readme.exists():
+        record("孤立对象清理命令可用", SKIP, "无 README 可比对")
+        return
+
+    text = readme.read_text(encoding="utf-8")
+    promises_command = "cleanup_orphans" in text or "重试删除" in text
+    command_file = (BASE_DIR / "submissions" / "management" / "commands"
+                    / "cleanup_orphans.py")
+    if not command_file.exists():
+        record("孤立对象清理命令可用", FAIL,
+               "README 提及清理机制但 submissions/management/commands/"
+               "cleanup_orphans.py 不存在")
+        return
+
+    code, out = run([PYTHON, "manage.py", "cleanup_orphans", "--dry-run"])
+    if code != 0:
+        record("孤立对象清理命令可用", FAIL, "命令执行失败", out)
+        return
+    if "待清理" not in out and "没有待清理" not in out:
+        record("孤立对象清理命令可用", FAIL, "命令输出不符合预期", out)
+        return
+
+    # 顺便确认 orphan 表存在（命令的作业对象）
+    script = (
+        "import os,django;"
+        "os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings.dev');"
+        "django.setup();"
+        "from submissions.models import OrphanObject;"
+        "print('pending=' + str(OrphanObject.objects.filter(resolved=False).count()))"
+    )
+    code, out2 = run([PYTHON, "-c", script])
+    if code != 0:
+        record("孤立对象清理命令可用", FAIL, "无法访问 OrphanObject 表", out2)
+        return
+
+    pending = ""
+    for line in out2.splitlines():
+        if line.startswith("pending="):
+            pending = line.split("=", 1)[1]
+
+    record("孤立对象清理命令可用", PASS,
+           "cleanup_orphans 可执行（dry-run 正常）；当前待清理 %s 个；"
+           "README 承诺与实现一致" % pending)
+
+
+def check_docker_attachments():
+    """compose 正确处理私有附件与 COS 配置。"""
+    compose = BASE_DIR / "docker-compose.yml"
+    if not compose.exists():
+        record("compose 私有附件配置", FAIL, "缺少 docker-compose.yml")
+        return
+    text = compose.read_text(encoding="utf-8")
+    problems = []
+
+    # 用正则精确匹配"卷挂载行"，而不是"任何出现 private_media 的地方"——
+    # 否则连注释里提到这个词都会被误判（本检查第一版就误报过一次）。
+    mount_re = re.compile(r"^\s*-\s*private_media:/app/private_media.*$", re.M)
+    all_mounts = mount_re.findall(text)
+    if not all_mounts:
+        problems.append("未挂载 private_media 卷（local 后端时容器重建会丢附件）")
+    if "PRIVATE_STORAGE_BACKEND" not in text:
+        problems.append("未向 app 传入 PRIVATE_STORAGE_BACKEND")
+
+    # nginx 服务块内不得出现该挂载（会绕过 Django 鉴权）
+    ng_idx = text.find("\n  nginx:")
+    if ng_idx != -1:
+        ng_block = text[ng_idx:]
+        if mount_re.search(ng_block):
+            problems.append("nginx 挂了私有附件目录（会绕过鉴权）")
+
+    if problems:
+        record("compose 私有附件配置", FAIL, "；".join(problems))
+    else:
+        record("compose 私有附件配置", PASS,
+               "app 挂载 private_media + 传入存储后端；nginx 未挂私有附件")
+
+
 def check_readme_consistency():
     """README 记录了 P3 内容。"""
     readme = BASE_DIR / "README.md"
@@ -995,6 +1082,8 @@ CHECKS = [
     ("p1file", check_previous_files_not_rewritten),
     ("guard", check_agent_loop_untouched),
     ("scope", check_scope),
+    ("orphan", check_orphan_command),
+    ("compose", check_docker_attachments),
     ("dockerfile", check_pillow_container_deps),
     ("nginx", check_nginx_body_size),
     ("docker", check_docker_available),

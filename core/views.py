@@ -75,7 +75,7 @@ def private_file(request, key):
     注意：本视图**不**位于 /static/ 或 /media/ 之下，因此不会被 Nginx
     或 WhiteNoise 直接服务；私有目录 PRIVATE_MEDIA_ROOT 也不在 STATIC_ROOT 内。
     """
-    from django.http import FileResponse, Http404
+    from django.http import FileResponse, Http404, HttpResponse
     from django.core.exceptions import PermissionDenied
 
     from core.storage import get_storage, verify_download_token
@@ -119,15 +119,38 @@ def private_file(request, key):
     download_name = download_name.replace('"', "").replace("\r", "").replace("\n", "")
 
     if local_path is not None:
+        # 本地后端：直接下发文件
         return FileResponse(
             open(local_path, "rb"),
             as_attachment=True,
             filename=download_name,
         )
 
-    # COS 等非本地后端在此场景应改用预签名直链；走到这里说明实现有遗漏
-    logger.error("存储后端没有本地路径，无法直接下发：%s", key)
-    raise Http404("该附件无法通过此方式下载，请重新获取下载链接。")
+    # 非本地后端（COS 等）：后端读取对象内容后转发。
+    #
+    # 说明：这里刻意不直接 302 到预签名 URL 的另一种做法是——**由后端代理下发**。
+    # 两者都能用，选择代理下发的理由：
+    #   · 下载链接本身已带签名与有效期（token 校验在上面完成），
+    #     权限判定完全在后端完成，不把对象存储域名暴露给浏览器；
+    #   · 行为在两个后端上完全一致，便于测试与排障。
+    # 代价是文件要过一次应用进程 —— 对工作成果这类几 MB 的附件可以接受；
+    # 若将来出现几百 MB 的下载需求，可改为「校验后 302 到预签名 URL」。
+    try:
+        content = store.read(key)
+    except FileNotFoundError:
+        raise Http404("附件不存在或已被清理。")
+    except Exception as exc:  # noqa: BLE001
+        # 不把存储层的内部错误暴露给用户；细节进日志
+        logger.error("附件读取失败：%s（%s）", key, type(exc).__name__)
+        raise Http404("附件暂时无法下载，请稍后重试。") from exc
+
+    response = HttpResponse(
+        content,
+        content_type=attachment.detected_content_type or "application/octet-stream",
+    )
+    response["Content-Disposition"] = 'attachment; filename="%s"' % download_name
+    response["Content-Length"] = str(len(content))
+    return response
 
 
 def home(request):

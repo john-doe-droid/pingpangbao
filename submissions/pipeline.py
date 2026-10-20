@@ -57,12 +57,33 @@ _VIDEO_MAGICS = {
 
 
 def _head_bytes(upload: UploadedFile, size: int = 32) -> bytes:
-    """读取文件开头若干字节（读取后把指针复位，避免影响后续处理）。"""
+    """读取文件开头若干字节，用于真实类型判断。
+
+    ⚠️ 大文件必须避免整读内存：
+    Django 在文件超过 FILE_UPLOAD_MAX_MEMORY_SIZE 时会把它落到临时文件
+    （TemporaryUploadedFile）。这类对象的 `read(n)` 并不只是"读 n 字节"——
+    在部分实现下会先把内容载入内存，对 300 MiB 视频足以打爆内存。
+
+    因此这里的策略是：
+      1. 若有 `temporary_file_path()`，**直接打开该文件**读前 n 字节；
+      2. 否则（小文件，已在内存）才用 read()。
+    """
+    temp_path = getattr(upload, "temporary_file_path", None)
+    if callable(temp_path):
+        try:
+            with open(temp_path(), "rb") as fh:
+                return fh.read(size) or b""
+        except OSError:
+            # 临时文件不可读时退回内存读（小文件场景），不因此中断流程
+            pass
+
     pos = upload.tell()
-    upload.seek(0)
-    head = upload.read(size)
-    upload.seek(pos)
-    return head or b""
+    try:
+        upload.seek(0)
+        head = upload.read(size)
+        return head or b""
+    finally:
+        upload.seek(pos)
 
 
 def _detect_binary_kind(head: bytes) -> str | None:
@@ -102,12 +123,25 @@ def _safe_original_name(upload: UploadedFile) -> str:
 
 
 def _validate_size(upload: UploadedFile, material_type: str, limits) -> int:
-    """校验单文件大小上限，返回实际字节数。"""
+    """校验单文件大小上限，返回实际字节数。
+
+    优先用 `upload.size`（Django 已算好），**不主动 seek 到末尾量长度** ——
+    对大文件来说，seek(0, SEEK_END) 之后若再需要从头读，有些实现会把内容
+    重新载入内存。只有在 size 缺失时才退回临时文件/流的方式取长度。
+    """
     size = getattr(upload, "size", None)
     if size is None:
-        upload.seek(0, os.SEEK_END)
-        size = upload.tell()
-        upload.seek(0)
+        temp_path = getattr(upload, "temporary_file_path", None)
+        if callable(temp_path):
+            try:
+                size = os.path.getsize(temp_path())
+            except OSError:
+                size = None
+        if size is None:
+            pos = upload.tell()
+            upload.seek(0, os.SEEK_END)
+            size = upload.tell()
+            upload.seek(pos)
 
     max_bytes = limits.max_bytes_for(material_type)
     if size > max_bytes:

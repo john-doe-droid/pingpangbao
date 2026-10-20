@@ -1,152 +1,17 @@
 {
-  "generated_at": "2026-10-19 16:27:14",
+  "generated_at": "2026-10-20 13:26:47",
   "python": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社\\.venv\\Scripts\\python.exe",
   "project_dir": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社",
   "summary": {
-    "pass": 26,
+    "pass": 1,
     "fail": 0,
-    "skip": 2
+    "skip": 0
   },
   "results": [
     {
-      "name": "Python 版本为 3.13",
-      "status": "PASS",
-      "detail": "Python 3.13.15"
-    },
-    {
-      "name": "P3 依赖已安装",
-      "status": "PASS",
-      "detail": "Pillow=13.0.0, cos_sdk=ok, django=5.2.18"
-    },
-    {
-      "name": "Pillow 能力齐备",
-      "status": "PASS",
-      "detail": "jpg / webp / zlib 均可用"
-    },
-    {
-      "name": "P3 依赖版本已锁定",
-      "status": "PASS",
-      "detail": "Pillow 与 cos-python-sdk-v5 均用 =="
-    },
-    {
-      "name": "Django 系统检查",
-      "status": "PASS",
-      "detail": "no issues"
-    },
-    {
-      "name": "模型与迁移一致",
-      "status": "PASS",
-      "detail": "无待生成、无待应用"
-    },
-    {
-      "name": "数据库为 PostgreSQL 18",
-      "status": "PASS",
-      "detail": "server=18.1"
-    },
-    {
-      "name": "P3 应用已注册",
-      "status": "PASS",
-      "detail": "submissions + reviews；用户模型仍为 accounts.User"
-    },
-    {
-      "name": "P3 核心模型存在",
-      "status": "PASS",
-      "detail": "Submission / SubmissionVersion / Attachment / UserImageUsage / OrphanObject / ReviewLog"
-    },
-    {
-      "name": "P3 表与约束已落库",
-      "status": "PASS",
-      "detail": "6 张表 + 7 个约束"
-    },
-    {
-      "name": "上传上限配置正确",
-      "status": "PASS",
-      "detail": "图片 10MiB / 文件 50MiB / 视频 300MiB；配额 50 张 100MiB；主图 1280 q82；缩略图 400；预签名 300s"
-    },
-    {
-      "name": "图片处理实测生效",
-      "status": "PASS",
-      "detail": "1280 长边 / 400 方缩略图 / EXIF 方向 / 透明垫白 / 伪造被拒 均实测生效"
-    },
-    {
-      "name": "P3 权限不变量（独立验证）",
-      "status": "PASS",
-      "detail": "9 条不变量成立（匿名/跨用户拒绝、审核权独立、不能审自己、退回必填、次数上限）"
-    },
-    {
-      "name": "私有存储 fail-closed",
-      "status": "PASS",
-      "detail": "生产未配置后端 / COS 凭据不全 均明确报错；prod 强制 cos"
-    },
-    {
-      "name": "P3 路由已挂载",
-      "status": "PASS",
-      "detail": "6 个关键路由可解析"
-    },
-    {
       "name": "P3 测试全部通过",
       "status": "PASS",
-      "detail": "97 passed in 44.88s"
-    },
-    {
-      "name": "P1 回归测试未退化",
-      "status": "PASS",
-      "detail": "52 passed in 15.71s"
-    },
-    {
-      "name": "P2 回归测试未退化",
-      "status": "PASS",
-      "detail": "141 passed in 69.02s (0:01:09)"
-    },
-    {
-      "name": "PostgreSQL 专项测试",
-      "status": "PASS",
-      "detail": "8 passed, 282 deselected in 2.31s"
-    },
-    {
-      "name": "全套测试通过",
-      "status": "PASS",
-      "detail": "290 passed in 122.76s (0:02:02)"
-    },
-    {
-      "name": "P1/P2 既有文件未被覆盖",
-      "status": "PASS",
-      "detail": "27 个文件哈希一致 + core/views.py 的 live/ready 逐字未变（其余为允许的追加与更新）"
-    },
-    {
-      "name": "agent-loop 护栏未被修改",
-      "status": "PASS",
-      "detail": "10 个护栏文件哈希一致"
-    },
-    {
-      "name": "未越界实现后续阶段",
-      "status": "PASS",
-      "detail": "无 reports/积分/Excel 实现"
-    },
-    {
-      "name": "Dockerfile Pillow 依赖",
-      "status": "PASS",
-      "detail": "zlib1g + libpq5 就位；未盲目追加 libjpeg（已实证 wheel 自带）"
-    },
-    {
-      "name": "Nginx 请求体上限",
-      "status": "PASS",
-      "detail": "client_max_body_size = 320m（≥ 300 MiB 视频上限）"
-    },
-    {
-      "name": "Docker 实际可运行",
-      "status": "SKIP",
-      "detail": "本机未安装 docker —— 容器构建与启动未在本机验证"
-    },
-    {
-      "name": "真实 COS 链路",
-      "status": "SKIP",
-      "detail": "未提供 COS 凭据 —— 生产 COS 上传/下载未实测（仅本地适配器与模拟验证）"
-    },
-    {
-      "name": "README 与项目一致",
-      "status": "PASS",
-      "detail": "P3 相关路径、存储与图片说明均已记录"
+      "detail": "121 passed in 259.33s (0:04:19)"
     }
   ]
 }
