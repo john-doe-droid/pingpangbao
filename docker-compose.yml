@@ -23,7 +23,9 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8"
       TZ: Asia/Shanghai
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # P5：数据库数据同样放在宿主机持久化数据目录下（与附件同根），
+      # 备份时整个目录打包即可，迁移服务器也只搬这一个目录。
+      - ${PINGPONG_DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
     networks:
       - backend          # 仅内部网络
     # 刻意不映射端口：数据库不对外暴露
@@ -51,16 +53,19 @@ services:
       POSTGRES_PORT: "5432"
       # 由反向代理终止 TLS，因此容器内不强制跳转 HTTPS
       DJANGO_HTTPS_ENABLED: "${DJANGO_HTTPS_ENABLED:-true}"
-      # P3：私有附件存储后端。生产必须为 cos（prod.py 会强制校验），
-      # 缺 COS 凭据时会在构造存储时报错，不会静默回退本地磁盘。
-      # 如需在本机用容器跑 local 后端做联调，可显式覆盖为 local。
-      PRIVATE_STORAGE_BACKEND: "${PRIVATE_STORAGE_BACKEND:-cos}"
-      PRIVATE_MEDIA_ROOT: "/app/private_media"
+      # P5：私有附件存储后端。生产默认 local（服务器本地持久化磁盘），
+      # 附件目录必须显式配置（见下方 PRIVATE_MEDIA_ROOT），
+      # 否则启动时构造存储会报错 —— 防止忘了挂持久卷、附件写进容器临时层。
+      # 若日后改用对象存储，设为 cos 并补齐 COS_* 四项凭据即可。
+      PRIVATE_STORAGE_BACKEND: "${PRIVATE_STORAGE_BACKEND:-local}"
+      # 容器内的数据根目录，由下方 bind mount 映射到宿主机持久化路径
+      PRIVATE_MEDIA_ROOT: "/data/private_media"
     volumes:
       - static:/app/staticfiles
       - media:/app/media
-      # P3：私有附件目录。用 local 后端时必须持久化，否则容器重建后附件丢失
-      - private_media:/app/private_media
+      # P5：私有附件目录。必须落在宿主机持久化磁盘上，容器重建不丢数据。
+      # 指向由 PINGPONG_DATA_DIR 决定的数据目录（见文件末尾说明）。
+      - ${PINGPONG_DATA_DIR:-./data}/private_media:/data/private_media
       - applogs:/app/logs
     networks:
       - backend
@@ -98,11 +103,27 @@ services:
       retries: 3
 
 volumes:
-  pgdata:
   static:
   media:
-  private_media:      # P3：私有附件（local 后端时持久化）
   applogs:
+# 说明（P5 数据落盘策略）：
+#   pgdata 与 private_media 均由具名卷改为 **宿主机目录 bind mount**，
+#   位置由 .env 里的 PINGPONG_DATA_DIR 决定，例如：
+#     Linux 服务器 ：PINGPONG_DATA_DIR=/srv/pingpong-data
+#     Windows 本地 ：PINGPONG_DATA_DIR=E:/乒乓数据
+#   （compose 的插值使用正斜杠更稳妥；Windows 下盘符路径可正常识别）
+#
+#   为什么不用具名卷：具名卷藏在 Docker 的存储目录里，备份、迁移、
+#   人工核对都得绕一层 docker volume 命令；而项目需求是「数据都存在一个
+#   明确的目录里」。用 bind mount 后：
+#     · 备份 = 打包该目录
+#     · 迁移 = 复制该目录
+#     · 附件与数据库同根，恢复时不会顾此失彼
+#   代价是该目录的属主/权限需要预先设置（db 容器以 postgres 用户写入），
+#   部署文档里给出了创建与授权命令。
+#
+#   注意：nginx **不**挂载 private_media —— 私有附件必须经 Django 鉴权后下发，
+#   不能像 static/media 那样被反向代理直接服务。
 
 networks:
   # 数据库只连这条；它不与外界互通

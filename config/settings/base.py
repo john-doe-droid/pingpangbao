@@ -219,10 +219,24 @@ UPLOAD_LIMITS = {
 
 # 私有附件目录：**不在** STATIC_ROOT / MEDIA_ROOT 之下，
 # 因此不会被 Nginx 或 WhiteNoise 直接服务，必须经过鉴权视图下发。
-PRIVATE_MEDIA_ROOT = Path(env("PRIVATE_MEDIA_ROOT", str(BASE_DIR / "private_media")))
+#
+# P5：区分「显式配置」与「开发默认值」。
+# 开发环境沿用 BASE_DIR/private_media 省事；但生产环境若仍是这个默认值，
+# 说明部署时漏配了数据目录 —— 附件会写进项目目录（容器内即临时层），
+# 容器一重建就丢。build_storage() 会据此 fail-closed 报错。
+_PRIVATE_MEDIA_ROOT_ENV = env("PRIVATE_MEDIA_ROOT", "").strip()
+PRIVATE_MEDIA_ROOT = (
+    Path(_PRIVATE_MEDIA_ROOT_ENV) if _PRIVATE_MEDIA_ROOT_ENV
+    else Path(BASE_DIR / "private_media")
+)
+PRIVATE_MEDIA_ROOT_IS_EXPLICIT = bool(_PRIVATE_MEDIA_ROOT_ENV)
 
-# 私有存储后端：'local' 或 'cos'。生产必须为 'cos'（prod.py 会强制校验）。
-PRIVATE_STORAGE_BACKEND = env("PRIVATE_STORAGE_BACKEND", "local")
+# 私有存储后端：'local'（服务器本地磁盘，P5 起为生产默认）或 'cos'。
+# 同样区分显式配置与默认值：生产环境必须显式声明，否则 build_storage() 报错，
+# 避免"忘了配"被静默当成 local 而落到容器临时层。
+_PRIVATE_STORAGE_BACKEND_ENV = env("PRIVATE_STORAGE_BACKEND", "").strip().lower()
+PRIVATE_STORAGE_BACKEND = _PRIVATE_STORAGE_BACKEND_ENV or "local"
+PRIVATE_STORAGE_BACKEND_IS_EXPLICIT = bool(_PRIVATE_STORAGE_BACKEND_ENV)
 
 # 腾讯云 COS 配置（仅在 PRIVATE_STORAGE_BACKEND=cos 时使用）
 COS_CONFIG = {

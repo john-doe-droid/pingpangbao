@@ -1,17 +1,122 @@
 {
-  "generated_at": "2026-10-20 17:12:05",
+  "generated_at": "2026-10-20 18:57:28",
   "python": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社\\.venv\\Scripts\\python.exe",
   "project_dir": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社",
   "summary": {
-    "pass": 1,
+    "pass": 22,
     "fail": 0,
     "skip": 0
   },
   "results": [
     {
+      "name": "Python 版本为 3.13",
+      "status": "PASS",
+      "detail": "Python 3.13.15"
+    },
+    {
+      "name": "P4 依赖已安装",
+      "status": "PASS",
+      "detail": "openpyxl=3.1.5, django=5.2.18"
+    },
+    {
+      "name": "P4 依赖版本已锁定",
+      "status": "PASS",
+      "detail": "openpyxl==3.1.5"
+    },
+    {
+      "name": "Django 系统检查",
+      "status": "PASS",
+      "detail": "no issues"
+    },
+    {
+      "name": "模型与迁移一致",
+      "status": "PASS",
+      "detail": "无待生成、无待应用"
+    },
+    {
+      "name": "数据库为 PostgreSQL 18",
+      "status": "PASS",
+      "detail": "server=18.1"
+    },
+    {
+      "name": "reports 应用已注册",
+      "status": "PASS",
+      "detail": "reports 已注册；用户模型与 P3 应用保持不变"
+    },
+    {
+      "name": "P4 核心模块存在",
+      "status": "PASS",
+      "detail": "filters（筛选）/ statistics（统计）/ excel（导出）/ views"
+    },
+    {
+      "name": "P4 路由已挂载",
+      "status": "PASS",
+      "detail": "/reports/ 与 /reports/export/"
+    },
+    {
+      "name": "核心口径：版本不重复计入（独立验证）",
+      "status": "PASS",
+      "detail": "1 条记录 3 个版本 → 记录数=1、版本数=3；三表加总一致；导出明细仅 1 行"
+    },
+    {
+      "name": "权限隔离（独立验证）",
+      "status": "PASS",
+      "detail": "干事只见本人；显式筛他人不返回数据；管理员可见全部"
+    },
+    {
       "name": "P4 测试全部通过",
       "status": "PASS",
-      "detail": "47 passed in 67.28s (0:01:07)"
+      "detail": "47 passed in 53.05s"
+    },
+    {
+      "name": "P1 回归测试未退化",
+      "status": "PASS",
+      "detail": "52 passed in 15.83s"
+    },
+    {
+      "name": "P2 回归测试未退化",
+      "status": "PASS",
+      "detail": "141 passed in 72.41s (0:01:12)"
+    },
+    {
+      "name": "P3 回归测试未退化",
+      "status": "PASS",
+      "detail": "124 passed in 53.80s"
+    },
+    {
+      "name": "PostgreSQL 专项测试",
+      "status": "PASS",
+      "detail": "8 passed, 356 deselected in 2.05s"
+    },
+    {
+      "name": "全套测试通过",
+      "status": "PASS",
+      "detail": "364 passed in 208.12s (0:03:28)"
+    },
+    {
+      "name": "P1/P2/P3 既有文件未被覆盖",
+      "status": "PASS",
+      "detail": "39 个文件哈希一致 + core/views.py 的 live/ready 逐字未变；storage.py 安全不变量（签名过期/服务端生成键/路径穿越/fail-closed）复核通过（P5 登记改动 2 处，已注明理由并复核不变量）"
+    },
+    {
+      "name": "agent-loop 护栏未被修改",
+      "status": "PASS",
+      "detail": "10 个护栏文件哈希一致"
+    },
+    {
+      "name": "未越界实现贡献积分",
+      "status": "PASS",
+      "detail": "无 points/scoring 模块与积分实现"
+    },
+    {
+      "name": "README 与项目一致",
+      "status": "PASS",
+      "detail": "P4 页面路径、三张表与验收入口均已记录"
+    },
+    {
+      "name": "部署配置自检",
+      "status": "PASS",
+      "detail": "汇总：通过 25 项，失败 0 项，跳过 1 项"
     }
   ]
 }

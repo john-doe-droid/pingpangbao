@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-20 13:55:46",
+  "generated_at": "2026-10-20 19:04:24",
   "python": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社\\.venv\\Scripts\\python.exe",
   "project_dir": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社",
   "summary": {
@@ -76,7 +76,7 @@
     {
       "name": "私有存储 fail-closed",
       "status": "PASS",
-      "detail": "生产未配置后端 / COS 凭据不全 均明确报错；prod 强制 cos"
+      "detail": "生产默认数据目录 / 无数据目录 / COS 凭据不全 / 未知后端 均明确报错；配好持久化目录后正常构造；prod 默认 local"
     },
     {
       "name": "P3 路由已挂载",
@@ -86,27 +86,27 @@
     {
       "name": "P3 测试全部通过",
       "status": "PASS",
-      "detail": "121 passed in 198.34s (0:03:18)"
+      "detail": "124 passed in 59.96s"
     },
     {
       "name": "P1 回归测试未退化",
       "status": "PASS",
-      "detail": "52 passed in 51.19s"
+      "detail": "52 passed in 17.39s"
     },
     {
       "name": "P2 回归测试未退化",
       "status": "PASS",
-      "detail": "141 passed in 205.38s (0:03:25)"
+      "detail": "141 passed in 75.93s (0:01:15)"
     },
     {
       "name": "PostgreSQL 专项测试",
       "status": "PASS",
-      "detail": "8 passed, 306 deselected in 4.34s"
+      "detail": "8 passed, 356 deselected in 2.76s"
     },
     {
       "name": "全套测试通过",
       "status": "PASS",
-      "detail": "314 passed in 355.68s (0:05:55)"
+      "detail": "364 passed in 216.58s (0:03:36)"
     },
     {
       "name": "P1/P2 既有文件未被覆盖",
@@ -121,7 +121,7 @@
     {
       "name": "未越界实现后续阶段",
       "status": "PASS",
-      "detail": "无 reports/积分/Excel 实现"
+      "detail": "P3 阶段末（662e2bb）无 reports/积分/Excel 模块；P3 应用内无积分实现"
     },
     {
       "name": "孤立对象清理命令可用",
@@ -131,7 +131,7 @@
     {
       "name": "compose 私有附件配置",
       "status": "PASS",
-      "detail": "app 挂载 private_media + 传入存储后端；nginx 未挂私有附件"
+      "detail": "app 把 /data/private_media 绑到宿主机数据目录 + 传入存储后端；nginx 未挂私有附件"
     },
     {
       "name": "Dockerfile Pillow 依赖",

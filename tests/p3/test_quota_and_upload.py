@@ -389,15 +389,63 @@ class TestPrivateStorage:
             with pytest.raises(StorageConfigError):
                 store.delete(bad)
 
-    def test_production_requires_cos_backend(self, settings):
-        """生产环境缺失存储配置时必须报错，不得静默回退本地。"""
+    def test_production_rejects_default_data_dir(self, settings):
+        """P5 规则变更：生产用本地磁盘时，数据目录不能停在开发默认值。
+
+        原断言是「生产缺 COS 配置必须报错」（P3 时生产强制 COS）。
+        P5 起改为服务器本地磁盘，该前提已不成立，故按新规则重写 ——
+        这不是放松校验，而是把守的关口换成真正会丢数据的那一个：
+        目录仍在项目内（容器里即临时层），容器重建附件就没了。
+        """
+        from pathlib import Path
+
         from core.storage import StorageConfigError, build_storage, reset_storage_cache
 
         settings.DEBUG = False
-        settings.PRIVATE_STORAGE_BACKEND = ""
+        settings.PRIVATE_STORAGE_BACKEND = "local"
+        # 刻意指回开发默认值（BASE_DIR/private_media）
+        settings.PRIVATE_MEDIA_ROOT = Path(settings.BASE_DIR) / "private_media"
+        settings.PRIVATE_MEDIA_ROOT_IS_EXPLICIT = False
+        reset_storage_cache()
+        with pytest.raises(StorageConfigError) as exc:
+            build_storage()
+        assert "PRIVATE_MEDIA_ROOT" in str(exc.value)
+
+    def test_production_accepts_explicit_persistent_dir(self, settings, tmp_path):
+        """生产配好持久化数据目录后，本地后端应正常工作。"""
+        from core.storage import build_storage, reset_storage_cache
+
+        root = tmp_path / "srv-data" / "private_media"
+        root.mkdir(parents=True)
+        settings.DEBUG = False
+        settings.PRIVATE_STORAGE_BACKEND = "local"
+        settings.PRIVATE_MEDIA_ROOT = root
+        settings.PRIVATE_MEDIA_ROOT_IS_EXPLICIT = True
+        reset_storage_cache()
+        store = build_storage()
+        assert store.__class__.__name__ == "LocalPrivateStorage"
+        assert store.root == root
+
+    def test_production_requires_storage_root(self, settings):
+        """生产环境完全没有数据目录配置时也必须报错。"""
+        from core.storage import StorageConfigError, build_storage, reset_storage_cache
+
+        settings.DEBUG = False
+        settings.PRIVATE_STORAGE_BACKEND = "local"
+        settings.PRIVATE_MEDIA_ROOT = None
         reset_storage_cache()
         with pytest.raises(StorageConfigError):
             build_storage()
+
+    def test_unknown_backend_rejected(self, settings):
+        """后端名写错时必须报错，不得猜成 local。"""
+        from core.storage import StorageConfigError, build_storage, reset_storage_cache
+
+        settings.PRIVATE_STORAGE_BACKEND = "s3"
+        reset_storage_cache()
+        with pytest.raises(StorageConfigError) as exc:
+            build_storage()
+        assert "PRIVATE_STORAGE_BACKEND" in str(exc.value)
 
     def test_cos_backend_requires_credentials(self, settings):
         """选了 COS 但凭据不全时必须明确报错。"""

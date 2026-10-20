@@ -558,18 +558,51 @@ def check_storage_failclosed():
     """生产缺失 COS 配置时必须报错，不得回退本地。"""
     script = r'''
 import os
+from pathlib import Path
 problems = []
-# 场景一：生产 + 未配置存储后端 → 必须报错
+# 说明：本段原为 P3 规则「生产必须用 COS」编写（场景一断言"未配后端即报错"、
+# 场景三断言"prod 硬编码 cos"）。P5 起改为服务器本地磁盘，旧前提失效，
+# 故按新规则重写 —— 守的关口换成真正会丢数据的那一个，不是放松校验。
+
+# 场景一：生产 + 用本地磁盘 + 数据目录停在开发默认值 → 必须报错
+#        （默认值在项目目录内，容器里是临时层，重建即丢附件）
 os.environ["DJANGO_SETTINGS_MODULE"] = "config.settings.dev"
 import django; django.setup()
+from django.conf import settings as dj_settings
 from django.test import override_settings
 from core.storage import StorageConfigError, build_storage
 
-with override_settings(DEBUG=False, PRIVATE_STORAGE_BACKEND=""):
+with override_settings(DEBUG=False, PRIVATE_STORAGE_BACKEND="local",
+                       PRIVATE_MEDIA_ROOT=Path(dj_settings.BASE_DIR) / "private_media",
+                       PRIVATE_MEDIA_ROOT_IS_EXPLICIT=False):
     try:
-        build_storage(); problems.append("生产未配置后端却成功构造了存储")
+        build_storage(); problems.append("生产用默认数据目录却成功构造了存储")
     except StorageConfigError:
         pass
+
+# 场景一之补充：生产 + 完全没有数据目录 → 必须报错
+with override_settings(DEBUG=False, PRIVATE_STORAGE_BACKEND="local",
+                       PRIVATE_MEDIA_ROOT=None):
+    try:
+        build_storage(); problems.append("生产无数据目录却成功构造了存储")
+    except StorageConfigError:
+        pass
+
+# 场景一之补充：生产 + 显式持久化目录 → 必须能正常工作（不能一律报错）
+import tempfile
+_tmp_root = Path(tempfile.mkdtemp(prefix="p5dir_")) / "private_media"
+_tmp_root.mkdir(parents=True, exist_ok=True)
+with override_settings(DEBUG=False, PRIVATE_STORAGE_BACKEND="local",
+                       PRIVATE_MEDIA_ROOT=_tmp_root,
+                       PRIVATE_MEDIA_ROOT_IS_EXPLICIT=True):
+    try:
+        _s = build_storage()
+        if _s.__class__.__name__ != "LocalPrivateStorage":
+            problems.append("生产配好目录后后端类型异常：%s" % _s.__class__.__name__)
+        if Path(_s.root).resolve() != _tmp_root.resolve():
+            problems.append("生产存储根目录与配置不一致：%s" % _s.root)
+    except StorageConfigError as e:
+        problems.append("生产配好持久化目录却仍报错：%s" % e)
 
 # 场景二：选了 cos 但凭据不全 → 必须报错
 with override_settings(DEBUG=False, PRIVATE_STORAGE_BACKEND="cos",
@@ -580,7 +613,16 @@ with override_settings(DEBUG=False, PRIVATE_STORAGE_BACKEND="cos",
     except StorageConfigError:
         pass
 
-# 场景三：prod 配置本身强制 cos
+# 场景三：后端名写错 → 必须报错，不得猜成 local
+with override_settings(DEBUG=False, PRIVATE_STORAGE_BACKEND="s3",
+                       PRIVATE_MEDIA_ROOT=_tmp_root,
+                       PRIVATE_MEDIA_ROOT_IS_EXPLICIT=True):
+    try:
+        build_storage(); problems.append("未知后端却成功构造")
+    except StorageConfigError:
+        pass
+
+# 场景四：prod 配置默认应为本地后端（P5 规则变更；P3 此处曾断言"强制 cos"）
 import importlib
 os.environ.update({
     "DJANGO_SECRET_KEY": "x"*60,
@@ -588,11 +630,14 @@ os.environ.update({
     "DJANGO_CSRF_TRUSTED_ORIGINS": "https://example.com",
     "POSTGRES_DB":"d","POSTGRES_USER":"u","POSTGRES_PASSWORD":"p","POSTGRES_HOST":"h",
 })
+os.environ.pop("PRIVATE_STORAGE_BACKEND", None)
 os.environ["DJANGO_SETTINGS_MODULE"] = "config.settings.prod"
 import config.settings.base as b, config.settings.prod as p
 importlib.reload(b); p = importlib.reload(p)
-if p.PRIVATE_STORAGE_BACKEND != "cos":
-    problems.append("生产配置未强制 cos（当前 %s）" % p.PRIVATE_STORAGE_BACKEND)
+if p.PRIVATE_STORAGE_BACKEND != "local":
+    problems.append("生产配置默认存储后端不是 local（当前 %s）" % p.PRIVATE_STORAGE_BACKEND)
+if not hasattr(p, "PRIVATE_MEDIA_ROOT_IS_EXPLICIT"):
+    problems.append("生产配置缺少数据目录来源标记，无法区分默认值与显式配置")
 
 print("PROBLEMS:" + ("|".join(problems) if problems else "NONE"))
 '''
@@ -606,7 +651,8 @@ print("PROBLEMS:" + ("|".join(problems) if problems else "NONE"))
         record("私有存储 fail-closed", FAIL, payload.replace("|", "；"), out)
     else:
         record("私有存储 fail-closed", PASS,
-               "生产未配置后端 / COS 凭据不全 均明确报错；prod 强制 cos")
+               "生产默认数据目录 / 无数据目录 / COS 凭据不全 / 未知后端 均明确报错；"
+               "配好持久化目录后正常构造；prod 默认 local")
 
 
 # ===========================================================================
@@ -734,7 +780,8 @@ def check_previous_files_not_rewritten():
         "config/settings/base.py", "config/urls.py",
         "requirements.txt", "README.md", ".env.example", ".gitignore",
         # P3 必要改动（均为追加式，且不影响既有行为）：
-        #   prod.py            —— 锁定 PRIVATE_STORAGE_BACKEND="cos"
+        #   prod.py            —— P3 锁定 PRIVATE_STORAGE_BACKEND="cos"；
+        #                         P5 规则变更后改为默认 local（详见 core/storage.py）
         #   core/audit.py      —— 新增 log_action_for_user（服务层无 request 时用）
         #   core/urls.py       —— 挂载私有文件下载路由
         "config/settings/prod.py", "core/audit.py", "core/urls.py",
@@ -827,22 +874,41 @@ def check_agent_loop_untouched():
 
 
 def check_scope():
-    """未越界实现 P4 内容（积分 / Excel 报表）。"""
+    """未越界实现 P4 内容（积分 / Excel 报表）。
+
+    说明：本检查验证的是「P3 当时没有越界」这一历史属性，因此目录判定要针对
+    **P3 阶段末的提交树**，而不是当前工作区 —— P4 完成后 reports/ 是合法存在的，
+    拿工作区去判会把 P4 的正当成果误报成 P3 越界。
+    关键词扫描仍针对当前代码，用于确认没有遗留的积分/报表实现混进 P3 应用。
+    """
+    P3_END_COMMIT = "662e2bb"  # chore: 刷新 P3 验证报告（P3 阶段末）
     forbidden_dirs = ["reports", "points", "scoring"]
-    found = [d for d in forbidden_dirs if (BASE_DIR / d).exists()]
-    if found:
-        record("未越界实现后续阶段", FAIL, "发现越界模块：%s" % found)
+
+    code, out = run(["git", "ls-tree", "-d", "--name-only", P3_END_COMMIT])
+    if code != 0:
+        record("未越界实现后续阶段", FAIL,
+               "无法读取 P3 阶段末提交 %s 的文件树" % P3_END_COMMIT)
         return
+    top_dirs = {line.strip().rstrip("/") for line in out.splitlines() if line.strip()}
+    found = [d for d in forbidden_dirs if d in top_dirs]
+    if found:
+        record("未越界实现后续阶段", FAIL,
+               "P3 阶段末已存在越界模块：%s" % found)
+        return
+
     # 代码里不应出现积分/报表相关实现
     # 排除本脚本自身：它包含用于检测的关键字，扫自己会误报
     code, out = run(["git", "grep", "-nE",
                      r"(contribution_points|excel_export|积分排名)",
-                     "--", "*.py", ":!scripts/verify_stage3.py"])
+                     "--", "*.py", ":!scripts/verify_stage3.py",
+                     ":!scripts/verify_stage4.py", ":!reports/", ":!tests/p4/"])
     hits = [l for l in out.splitlines() if l.strip()]
     if hits:
         record("未越界实现后续阶段", FAIL, "发现越界实现：%s" % hits[:3])
     else:
-        record("未越界实现后续阶段", PASS, "无 reports/积分/Excel 实现")
+        record("未越界实现后续阶段", PASS,
+               "P3 阶段末（%s）无 reports/积分/Excel 模块；P3 应用内无积分实现"
+               % P3_END_COMMIT[:7])
 
 
 def check_pillow_container_deps():
@@ -1015,12 +1081,23 @@ def check_docker_attachments():
 
     # 用正则精确匹配"卷挂载行"，而不是"任何出现 private_media 的地方"——
     # 否则连注释里提到这个词都会被误判（本检查第一版就误报过一次）。
-    mount_re = re.compile(r"^\s*-\s*private_media:/app/private_media.*$", re.M)
+    # P5：附件目录改为宿主机 bind mount（数据存到明确的持久化目录），
+    # 因此匹配「<数据目录>/private_media:/data/private_media」这一形式。
+    mount_re = re.compile(
+        r"^\s*-\s*\S*private_media:/data/private_media\s*$", re.M)
     all_mounts = mount_re.findall(text)
     if not all_mounts:
-        problems.append("未挂载 private_media 卷（local 后端时容器重建会丢附件）")
+        problems.append(
+            "未把私有附件目录挂到宿主机持久化路径"
+            "（容器的 /data/private_media 需 bind mount 到数据目录）")
     if "PRIVATE_STORAGE_BACKEND" not in text:
         problems.append("未向 app 传入 PRIVATE_STORAGE_BACKEND")
+    if not re.search(r'^\s*PRIVATE_MEDIA_ROOT:\s*"/data/private_media"', text, re.M):
+        problems.append("app 的 PRIVATE_MEDIA_ROOT 未指向挂载点 /data/private_media")
+
+    # 私有附件目录不得与 static/media 混在一起（否则可能被反代直接服务）
+    if re.search(r"private_media:/app/(staticfiles|media)", text, re.M):
+        problems.append("私有附件被挂到了 static/media 之下（可被直接访问）")
 
     # nginx 服务块内不得出现该挂载（会绕过 Django 鉴权）
     ng_idx = text.find("\n  nginx:")
@@ -1033,7 +1110,8 @@ def check_docker_attachments():
         record("compose 私有附件配置", FAIL, "；".join(problems))
     else:
         record("compose 私有附件配置", PASS,
-               "app 挂载 private_media + 传入存储后端；nginx 未挂私有附件")
+               "app 把 /data/private_media 绑到宿主机数据目录 + 传入存储后端；"
+               "nginx 未挂私有附件")
 
 
 def check_readme_consistency():

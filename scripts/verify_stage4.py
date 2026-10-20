@@ -633,6 +633,22 @@ def check_previous_files_not_rewritten():
     }
     FUNC_GUARDED = {"core/views.py": ["live", "ready"]}
 
+    # P5 登记的有意改动（非追加式，逐项给出理由；不在列表内的改动仍判失败）。
+    # 之所以要显式登记而不是放宽比较：这两处是「规则变更」导致的必要改写，
+    # 若静默放行，后续阶段就可能借这条通道悄悄改掉验证逻辑。
+    P5_CHANGED = {
+        "core/storage.py":
+            "P5 规则变更：生产存储由强制 COS 改为服务器本地磁盘。"
+            "build_storage() 改为按 PRIVATE_MEDIA_ROOT 是否仍为开发默认值"
+            "来 fail-closed（容器内即临时层，重建会丢附件）。"
+            "安全不变量（签名链接、路径穿越防护）未变，另有专项复核。",
+        "scripts/verify_stage3.py":
+            "P3 验收入口内有三处断言基于旧规则（生产强制 cos），P5 下前提失效，"
+            "按新规则改写为「生产用默认数据目录 / 无目录 / COS 凭据不全 / 未知后端」"
+            "四种场景均须报错，并把越界检查改为针对 P3 阶段末提交树"
+            "（否则 P4 合法新增的 reports/ 会被误判为 P3 越界）。",
+    }
+
     baseline = BASE_DIR / "scripts" / "p4_baseline.json"
     if not baseline.exists():
         record("P1/P2/P3 既有文件未被覆盖", SKIP, "未找到 P4 基线文件")
@@ -641,7 +657,7 @@ def check_previous_files_not_rewritten():
     data = json.loads(baseline.read_text(encoding="utf-8"))
     changed, missing = [], []
     for rel, expect in data["files"].items():
-        if rel in APPEND_OK or rel in FUNC_GUARDED:
+        if rel in APPEND_OK or rel in FUNC_GUARDED or rel in P5_CHANGED:
             continue
         path = BASE_DIR / rel.replace("/", os.sep)
         if not path.exists():
@@ -685,9 +701,58 @@ def check_previous_files_not_rewritten():
             return
         notes.append("%s 的 %s 逐字未变" % (rel, "/".join(funcs)))
 
-    plain = len(data["files"]) - len(APPEND_OK) - len(FUNC_GUARDED)
+    # P5 登记改动必须逐项复核安全不变量：登记本身不是免检通行证
+    storage_path = BASE_DIR / "core" / "storage.py"
+    if storage_path.exists():
+        st_src = storage_path.read_text(encoding="utf-8")
+        st_tree = ast.parse(st_src)
+        funcs_by_name = {n.name: n for n in st_tree.body
+                         if isinstance(n, ast.FunctionDef)}
+        missing_invariants = []
+        # 1) 签名下载仍需 SALT + 过期校验
+        if "DOWNLOAD_SALT" not in st_src:
+            missing_invariants.append("DOWNLOAD_SALT 缺失")
+        verify_fn = funcs_by_name.get("verify_download_token")
+        if verify_fn is None:
+            missing_invariants.append("verify_download_token 缺失")
+        else:
+            vsrc = ast.get_source_segment(st_src, verify_fn) or ""
+            if "SignatureExpired" not in vsrc:
+                missing_invariants.append("签名过期未校验")
+            if "max_age" not in vsrc and "expires" not in vsrc:
+                missing_invariants.append("有效期未校验")
+        # 2) 对象键必须服务端生成（不接受用户输入拼路径）
+        if "generate_object_key" not in funcs_by_name:
+            missing_invariants.append("generate_object_key 缺失")
+        # 3) 路径穿越防护仍在本地实现中
+        local_cls = next((n for n in st_tree.body
+                          if isinstance(n, ast.ClassDef)
+                          and n.name == "LocalPrivateStorage"), None)
+        if local_cls is None:
+            missing_invariants.append("LocalPrivateStorage 缺失")
+        else:
+            lsrc = ast.get_source_segment(st_src, local_cls) or ""
+            if not ("StorageConfigError" in lsrc and (".." in lsrc or "resolve" in lsrc)):
+                missing_invariants.append("路径穿越防护疑似丢失")
+        # 4) 生产 fail-closed 仍存在
+        bs_fn = funcs_by_name.get("build_storage")
+        if bs_fn is None:
+            missing_invariants.append("build_storage 缺失")
+        else:
+            bsrc = ast.get_source_segment(st_src, bs_fn) or ""
+            if "is_production" not in bsrc or "StorageConfigError" not in bsrc:
+                missing_invariants.append("build_storage 的 fail-closed 校验疑似丢失")
+
+        if missing_invariants:
+            record("P1/P2/P3 既有文件未被覆盖", FAIL,
+                   "P5 登记改动的安全不变量被破坏：%s" % "、".join(missing_invariants))
+            return
+        notes.append("storage.py 安全不变量（签名过期/服务端生成键/路径穿越/fail-closed）复核通过")
+
+    plain = len(data["files"]) - len(APPEND_OK) - len(FUNC_GUARDED) - len(P5_CHANGED)
     record("P1/P2/P3 既有文件未被覆盖", PASS,
-           "%d 个文件哈希一致 + %s" % (plain, "；".join(notes)))
+           "%d 个文件哈希一致 + %s（P5 登记改动 %d 处，已注明理由并复核不变量）"
+           % (plain, "；".join(notes), len(P5_CHANGED)))
 
 
 def check_agent_loop_untouched():
@@ -752,6 +817,28 @@ def check_readme_consistency():
         record("README 与项目一致", PASS, "P4 页面路径、三张表与验收入口均已记录")
 
 
+def check_deploy_readiness():
+    """P5：部署配置自检通过（Dockerfile 应用清单 / 挂载 / 密钥卫生 / 文档）。
+
+    单独跑 scripts/verify_deploy.py，把它作为 P4 验收流水线的一环，
+    避免"改完部署配置忘了验"。
+    """
+    script = BASE_DIR / "scripts" / "verify_deploy.py"
+    if not script.exists():
+        record("部署配置自检", FAIL, "缺少 scripts/verify_deploy.py")
+        return
+    code, out = run([PYTHON, str(script)], timeout=300)
+    failed = [l for l in out.splitlines() if l.strip().startswith("❌")]
+    if code != 0 or failed:
+        detail = "；".join(l.strip().lstrip("❌").strip() for l in failed[:3]) \
+            or "自检脚本退出码 %d" % code
+        record("部署配置自检", FAIL, detail, out)
+        return
+    summary = [l for l in out.splitlines() if l.startswith("汇总")]
+    record("部署配置自检", PASS,
+           summary[0] if summary else "全部通过（Dockerfile/挂载/密钥/文档）")
+
+
 # ===========================================================================
 # 主流程
 # ===========================================================================
@@ -778,6 +865,7 @@ CHECKS = [
     ("guard", check_agent_loop_untouched),
     ("scope", check_scope_no_points),
     ("readme", check_readme_consistency),
+    ("deploy", check_deploy_readiness),
 ]
 
 

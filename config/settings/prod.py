@@ -177,16 +177,30 @@ LOGGING = {
 # 生产环境静态资源由 Nginx 直接服务（见 deploy/nginx/），WhiteNoise 作为兜底。
 
 # ---------------------------------------------------------------------------
-# P3：私有附件存储 —— 生产固定使用 COS
+# P5：私有附件存储 —— 使用服务器本地持久化磁盘（可选 COS）
 #
-# 本阶段技术栈已确定「腾讯云 COS 私有对象存储」，因此生产不允许选择其它后端：
-# 这里直接锁定为 cos，避免误配成 local 后把附件写到服务器磁盘上。
+# 与 P3 的差异（规则变更，不是放松要求）：
+#   P3 时技术栈要求"生产必须用 COS"，因此这里曾硬编码 PRIVATE_STORAGE_BACKEND="cos"。
+#   P5 起改为**本地磁盘**：附件存放在服务器持久化数据目录，不依赖 COS。
+#   历史原文见提交 7eb08a3，此处按新决定更新。
 #
-# 注意：**不在此处校验 COS 凭据完整性**。原因是配置模块会被
-# `manage.py check`、迁移、测试等场景加载，若在导入时就因缺凭据而抛错，
-# 会让这些与附件无关的操作整体失败。
-# 凭据校验放在「存储被真正构造时」（core/storage.py 的 build_storage），
-# 那里缺失配置会抛 StorageConfigError —— 同样是明确报错，
-# 且**绝不会静默回退到本地磁盘**。
+# 仍然保留 fail-closed 的精神（见 core/storage.py 的 build_storage）：
+#   · 生产环境**必须显式配置** PRIVATE_STORAGE_BACKEND ——
+#     不配就报错，避免"忘了配"导致附件写进容器临时层、容器重建即丢；
+#   · 选择 local 时**必须显式配置** PRIVATE_MEDIA_ROOT（持久化数据目录）；
+#   · 选择 cos 但凭据不全时照旧明确报错，不会悄悄改用本地磁盘。
+#
+# 校验时机仍放在"存储被真正构造时"而非本文件导入时 ——
+# 因为配置模块会被 `manage.py check`、迁移、测试等场景加载，
+# 那时若因缺配置抛错会让无关操作整体失败。
 # ---------------------------------------------------------------------------
-PRIVATE_STORAGE_BACKEND = "cos"
+_BACKEND_ENV = env("PRIVATE_STORAGE_BACKEND", "").strip().lower()  # noqa: F405
+PRIVATE_STORAGE_BACKEND = _BACKEND_ENV or "local"
+PRIVATE_STORAGE_BACKEND_IS_EXPLICIT = bool(_BACKEND_ENV)
+
+_ROOT_ENV = env("PRIVATE_MEDIA_ROOT", "").strip()  # noqa: F405
+if _ROOT_ENV:
+    PRIVATE_MEDIA_ROOT = Path(_ROOT_ENV)
+    PRIVATE_MEDIA_ROOT_IS_EXPLICIT = True
+# else: 保留 base.py 的默认值，但 PRIVATE_MEDIA_ROOT_IS_EXPLICIT 仍为 False，
+#       build_storage() 会因此拒绝启动存储（生产必须显式配置数据目录）。

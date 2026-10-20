@@ -70,16 +70,34 @@ WORKDIR /app
 # 只复制运行所需内容（.dockerignore 已排除 .env / .venv / 日志等）
 COPY --chown=app:app manage.py ./
 COPY --chown=app:app config ./config
-COPY --chown=app:app accounts ./accounts
-COPY --chown=app:app core ./core
 COPY --chown=app:app templates ./templates
 COPY --chown=app:app scripts ./scripts
 COPY --chown=app:app deploy ./deploy
 COPY --chown=app:app requirements.txt ./
 
-# 静态资源目录与日志目录（collectstatic 与运行期写入需要）
-RUN mkdir -p /app/staticfiles /app/media /app/logs \
-    && chown -R app:app /app
+# Django 应用逐个复制。
+#
+# 这里刻意**逐个列全**而不是 `COPY . .`：
+#   逐个列可避免把 tests / .venv / 日志等打进来（.dockerignore 只是第二道防线）。
+# 但代价是每新增一个应用都必须同步本清单 ——
+# P2–P4 新增的 competitions / tasks / submissions / reviews / reports
+# 此前就漏在这里，容器构建后会在启动时因 ImportError 直接崩溃
+# （本地 runserver 测不出来，因为源码就在磁盘上）。
+# verify_deploy.py 里有一条检查专门比对「INSTALLED_APPS 中的应用目录
+# 是否都在本文件里被 COPY」，防止再次漏掉。
+COPY --chown=app:app accounts ./accounts
+COPY --chown=app:app competitions ./competitions
+COPY --chown=app:app core ./core
+COPY --chown=app:app tasks ./tasks
+COPY --chown=app:app submissions ./submissions
+COPY --chown=app:app reviews ./reviews
+COPY --chown=app:app reports ./reports
+
+# 静态资源目录、日志目录与私有数据目录（collectstatic 与运行期写入需要）
+# /data 是 P5 的私有附件挂载点：生产由 docker-compose bind mount 到宿主机
+# 持久化目录；此处先建好并授权，使「未挂载时」的本地联调也能正常写入。
+RUN mkdir -p /app/staticfiles /app/media /app/logs /data/private_media \
+    && chown -R app:app /app /data
 
 USER app
 

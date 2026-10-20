@@ -291,11 +291,27 @@ _storage_singleton = None
 
 
 def build_storage():
-    """按配置构造存储实例（不缓存）。"""
-    backend = (getattr(settings, "PRIVATE_STORAGE_BACKEND", "") or "").strip().lower()
+    """按配置构造存储实例（不缓存）。
 
+    支持两种后端：
+        local —— 服务器本地磁盘（P5 起为生产默认）
+        cos   —— 腾讯云 COS 私有对象存储（可选）
+
+    fail-closed 原则（P5 保留，但语义随规则更新）：
+        本地后端在生产环境**必须显式配置数据目录**（PRIVATE_MEDIA_ROOT）。
+        这样可避免"忘记挂持久卷 → 附件写进容器临时层 → 容器一重建就丢"——
+        那种失败非常隐蔽，等发现时数据已经没了。
+
+        挂了 COS 但凭据不全时，同样明确报错而不是悄悄改用本地磁盘。
+    """
+    backend = (getattr(settings, "PRIVATE_STORAGE_BACKEND", "") or "").strip().lower()
+    is_production = not getattr(settings, "DEBUG", False)
+    root = getattr(settings, "PRIVATE_MEDIA_ROOT", None)
+
+    # --- COS ---
     if backend in ("cos", "qcloud", "tencent"):
         cfg = getattr(settings, "COS_CONFIG", None) or {}
+        # CosPrivateStorage 的构造函数会校验四项凭据，缺失时抛 StorageConfigError
         return CosPrivateStorage(
             region=cfg.get("region", ""),
             bucket=cfg.get("bucket", ""),
@@ -304,19 +320,44 @@ def build_storage():
             scheme=cfg.get("scheme", "https"),
         )
 
+    # --- 本地磁盘 ---
     if backend in ("local", "filesystem", ""):
-        # 生产环境**不允许**落到本地实现 —— 那等于私有存储没有落地
-        if not getattr(settings, "DEBUG", False) and backend == "":
-            raise StorageConfigError(
-                "生产环境必须显式配置 PRIVATE_STORAGE_BACKEND=cos。"
-                "当前未配置任何存储后端，已拒绝回退到本地磁盘。"
-            )
-        root = getattr(settings, "PRIVATE_MEDIA_ROOT", None)
         if not root:
-            raise StorageConfigError("缺少 PRIVATE_MEDIA_ROOT 配置，无法使用本地私有存储。")
+            raise StorageConfigError(
+                "缺少 PRIVATE_MEDIA_ROOT 配置，无法使用本地私有存储。")
+
+        # 生产环境的判断依据是**「数据目录还停在开发默认值」**，而不是"环境变量有没有设"：
+        # 默认值落在项目目录内，容器里就是镜像临时层，重建即丢，且丢得很隐蔽。
+        # 这样判定不依赖额外的"是否显式配置"标记，运行时覆盖 settings 的场景（测试、
+        # 运维临时调整）同样成立。
+        if is_production and not getattr(
+                settings, "PRIVATE_MEDIA_ROOT_IS_EXPLICIT", False):
+            default_root = Path(getattr(settings, "BASE_DIR", ".")) / "private_media"
+            try:
+                still_default = Path(root).resolve() == default_root.resolve()
+            except OSError:
+                still_default = False
+            if still_default:
+                raise StorageConfigError(
+                    "生产环境使用本地磁盘时，必须配置持久化的附件数据目录"
+                    "（PRIVATE_MEDIA_ROOT）。\n"
+                    "  当前值 %s 是开发默认值，位于项目目录内 —— "
+                    "部署到容器后即临时层，容器重建会导致附件全部丢失。\n"
+                    "  正确做法：PRIVATE_MEDIA_ROOT=<持久化磁盘路径>，"
+                    "如 /srv/pingpong-data/private_media，并将其纳入备份。"
+                    % root
+                )
+
+        return LocalPrivateStorage(Path(root))
+        if not root:
+            raise StorageConfigError(
+                "缺少 PRIVATE_MEDIA_ROOT 配置，无法使用本地私有存储。")
+
         return LocalPrivateStorage(Path(root))
 
-    raise StorageConfigError("未知的 PRIVATE_STORAGE_BACKEND：%r" % backend)
+    raise StorageConfigError(
+        "未知的 PRIVATE_STORAGE_BACKEND：%r（应为 local 或 cos）" % backend
+    )
 
 
 def get_storage():

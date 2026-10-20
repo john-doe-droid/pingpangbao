@@ -420,24 +420,44 @@ $env:DJANGO_SETTINGS_MODULE="config.settings.prod"
 
 ### 7.2 正式部署概要
 
-> ⚠️ **本阶段不创建云服务器、不购买域名。** 以下仅说明流程，供后续阶段使用。
+> 完整、可照着敲的步骤见 **[`deploy/DEPLOY.md`](deploy/DEPLOY.md)**（服务器初始化、
+> 数据目录授权、HTTPS、备份恢复、故障排查、上线清单）。此处只列要点。
+
+**P5 起的数据策略：数据库与用户附件都存放在服务器的**一个持久化目录**里**
+（不是对象存储，也不是 Docker 具名卷）。默认位置 `/srv/pingpong-data`，
+其中 `postgres/` 放数据库、`private_media/` 放用户上传的图片与视频。
+
+这样做的直接好处：**备份就是打包这一个目录，迁移就是把目录复制到新机器。**
 
 1. 准备一台 Linux 服务器，装好 Docker 与 Docker Compose
-2. 把代码传到服务器
-3. 复制 `.env.example` 为 `.env`，填上**生产值**：
+2. 创建数据目录并授权（属主填错会导致附件写不进去，这是最常见的坑）：
+   ```bash
+   sudo mkdir -p /srv/pingpong-data/{postgres,private_media}
+   sudo chown -R 999:999   /srv/pingpong-data/postgres      # postgres 容器用户
+   sudo chown -R 1001:1001 /srv/pingpong-data/private_media # 应用容器用户
+   ```
+3. 把代码传到服务器，复制 `.env.example` 为 `.env`，填上**生产值**：
    ```ini
    DJANGO_SETTINGS_MODULE=config.settings.prod
-   DJANGO_SECRET_KEY=<重新生成的随机串，不要用开发的那个>
-   DJANGO_ALLOWED_HOSTS=你的域名.com,www.你的域名.com
+   DJANGO_SECRET_KEY=<重新生成的随机串，至少 40 字符，不要用开发的那个>
+   DJANGO_ALLOWED_HOSTS=你的域名.com
    DJANGO_CSRF_TRUSTED_ORIGINS=https://你的域名.com
-   POSTGRES_PASSWORD=<强密码>
    DJANGO_HTTPS_ENABLED=true
+   POSTGRES_PASSWORD=<强密码>
+   POSTGRES_HOST=db
+
+   # 私有附件：本地磁盘（默认），路径是容器内路径，由 compose 映射到宿主机
+   PRIVATE_STORAGE_BACKEND=local
+   PRIVATE_MEDIA_ROOT=/data/private_media
+   # 宿主机数据目录（与上面那个是同一个目录的两端）
+   PINGPONG_DATA_DIR=/srv/pingpong-data
    ```
 4. 把 `deploy/nginx/pingpong.conf` 里的 `stat.example.com` 替换成你的域名
 5. 启动：
    ```bash
-   docker compose up -d
-   docker compose logs -f app     # 看日志确认起来了
+   docker compose up -d --build
+   docker compose ps              # 三个服务应为 Up，db 为 healthy
+   curl -i http://127.0.0.1/health/ready   # 200 表示数据库也通了
    ```
 6. 申请 HTTPS 证书（用 certbot），证书路径要和 Nginx 配置里一致
 
@@ -445,15 +465,40 @@ $env:DJANGO_SETTINGS_MODULE="config.settings.prod"
 
 - 数据库容器**不发布端口**，只在内部网络里，公网和宿主机都连不进去
 - 应用容器也不直接对外，由 Nginx 反代
+- **私有附件目录不挂给 Nginx** —— 必须经 Django 鉴权后下发，不能像静态文件那样被直接服务
 - 密钥、密码全部来自 `.env`，代码仓库里没有任何真实凭据
 
-### 7.3 关于 Docker
+**配置错了会怎样**：生产环境若没配 `PRIVATE_MEDIA_ROOT`（或仍指向开发默认值），
+应用启动时会**直接报错退出**，而不是悄悄把附件写进容器临时层。
+这是有意的 —— 后者要等到容器重建、附件全丢了才会被发现。
+
+### 7.3 部署自检
+
+推代码或上服务器之前，先跑一遍部署配置自检（不需要 Docker）：
+
+```bash
+python scripts/verify_deploy.py -v
+```
+
+它检查的是那些「本地 runserver 正常、一上容器就崩」的问题，例如：
+
+- Dockerfile 是否把**所有** Django 应用都 COPY 进镜像
+  （P2–P4 新增了 5 个应用，早期 Dockerfile 漏掉了，容器启动会 ImportError）
+- compose 是否把附件目录挂到了宿主机持久路径，容器内路径是否与挂载点一致
+- nginx 是否误挂了私有附件目录（会绕过鉴权）
+- 数据库是否仍然不对外暴露端口
+- `.env`、`private_media/`、`data/` 是否真的没被 Git 跟踪
+- 部署文档是否覆盖了必要章节
+
+退出码 0 = 全部通过，1 = 有失败项。
+
+### 7.4 关于 Docker 的未验证部分
 
 Docker 配置（`Dockerfile`、`docker-compose.yml`、`deploy/nginx/pingpong.conf`）
-**已经写好并通过结构校验**，但：
+**已完成结构校验与静态自检**，但：
 
-> **本机尚未安装 Docker，因此容器编排没有在本机实际跑过。**
-> 这一点会在验证报告里明确标注为「未验证事项」，不会被算作已通过。
+> **本机尚未安装 Docker，因此镜像构建与容器实际启动没有在本机跑过。**
+> 这一点在验证报告里明确标注为「未验证事项」，不会被算作已通过。
 
 要在本机验证，需先安装 Docker Desktop（需要管理员权限），然后：
 
@@ -617,19 +662,22 @@ PostgreSQL 遇到了**中文路径**。这是 Windows 版 PostgreSQL 的限制�
 ├── scripts/
 │   ├── verify_stage1.py          P1 统一验证入口
 │   ├── verify_stage2.py          P2 统一验证入口
-│   ├── verify_stage3.py          ★P3 统一验证入口
-│   ├── setup_p3_loop.py          ★建立 P3 专用 goal / verify / 基线
+│   ├── verify_stage3.py          P3 统一验证入口
+│   ├── verify_stage4.py          ★P4 统一验证入口（含部署自检）
+│   ├── verify_deploy.py          ★P5 部署配置自检（Dockerfile/挂载/密钥/文档）
+│   ├── setup_p3_loop.py          P3 建立 goal / verify / 基线
 │   ├── check_prod_wsgi.py        生产 WSGI 入口冒烟检查
 │   ├── check_member_isolation.py 干事端隔离实测（真实 HTTP 会话）
 │   ├── seed_demo_data.py         演示数据（--reset 可清理）
-│   └── p3_baseline.json          ★P3 开工时的 P1/P2 文件哈希基线
+│   └── p3_baseline.json           P3 开工时的 P1/P2 文件哈希基线
 │
-├── p3-loop/                      ★P3 专用循环配置（目标/闸门/基线）
+├── p3-loop/                      P3 专用循环配置（目标/闸门/基线）
 │   ├── goal.json  verify.json  baseline.json
 │
-├── private_media/                ★本地私有附件（已 gitignore，不进仓库）
+├── private_media/                本地私有附件（已 gitignore，不进仓库）
 │
 └── deploy/
+    ├── DEPLOY.md                 ★P5 部署手册（初始化→上线→备份→排障）
     ├── gunicorn.conf.py          生产应用服务器配置
     └── nginx/pingpong.conf       Nginx 反向代理配置
 ```
@@ -639,18 +687,20 @@ PostgreSQL 遇到了**中文路径**。这是 Windows 版 PostgreSQL 的限制�
 | 文件 | 作用 | 改它的时机 |
 |---|---|---|
 | `config/settings/base.py` | 公共配置、已安装应用、上传上限 | 新增业务模块时 |
-| `config/settings/prod.py` | 生产安全配置（强制 COS 存储） | 一般不用改 |
+| `config/settings/prod.py` | 生产安全配置（存储后端默认 local） | 一般不用改 |
 | `accounts/models.py` | 用户与角色模型 | 要加用户字段时 |
 | `core/imaging.py` | **图片处理纯逻辑** | 调整压缩参数或支持新格式时 |
 | `core/upload_config.py` | **上传与配额上限** | 调整限制时（改这里或 `.env`） |
-| `core/storage.py` | **私有存储适配层** | 更换存储后端时 |
+| `core/storage.py` | **私有存储适配层**（local / cos） | 更换存储后端时 |
 | `submissions/services.py` | **提交/配额/审核的事务逻辑** | 改业务规则时（注意行级锁） |
 | `submissions/pipeline.py` | **上传管线与失败补偿** | 调整校验或处理流程时 |
 | `submissions/orchestration.py` | **事务编排** | 调整事务边界时 |
+| `deploy/DEPLOY.md` | **部署手册** | 部署流程或环境变量变化时 |
 | `deploy/nginx/pingpong.conf` | Nginx 配置（含请求体上限） | 换域名/调整大文件上限时 |
 | `requirements.txt` | 依赖清单（已锁定版本） | 增删依赖时 |
 | `.env.example` | 环境变量样例 | 新增环境变量时 |
-| `scripts/verify_stage3.py` | **P3 统一验证入口** | 新增检查项时 |
+| `scripts/verify_stage4.py` | **P4 统一验证入口** | 新增检查项时 |
+| `scripts/verify_deploy.py` | **部署配置自检** | 部署结构变化时 |
 
 ### 后续业务模块的扩展位置
 
