@@ -27,5 +27,7 @@ urlpatterns = [
     path("my/submissions/", include("submissions.urls")),
     # P3 管理端：/manage/submissions/...
     path("manage/submissions/", include("submissions.urls_admin")),
+    # P4 统计与报表：/reports/ 与 /reports/export/
+    path("reports/", include("reports.urls")),
     path("", include("core.urls")),
 ]

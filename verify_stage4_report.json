@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-10-20 17:12:05",
+  "python": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社\\.venv\\Scripts\\python.exe",
+  "project_dir": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社",
+  "summary": {
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  "results": [
+    {
+      "name": "P4 测试全部通过",
+      "status": "PASS",
+      "detail": "47 passed in 67.28s (0:01:07)"
+    }
+  ]
+}

@@ -35,6 +35,9 @@
               <li class="nav-item"><a class="nav-link" href="{% url 'competitions:list' %}">比赛</a></li>
             {% endif %}
 
+            {# P4：统计与报表（所有人可用，可见范围由权限层决定） #}
+            <li class="nav-item"><a class="nav-link" href="{% url 'reports:page' %}">统计报表</a></li>
+
             <li class="nav-item">
               <span class="navbar-text me-lg-3 ms-lg-2">{{ user.get_short_name }}</span>
             </li>

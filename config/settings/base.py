@@ -80,6 +80,8 @@ LOCAL_APPS = [
     # P3 新增业务模块
     "submissions",
     "reviews",
+    # P4 新增：统计与报表
+    "reports",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
