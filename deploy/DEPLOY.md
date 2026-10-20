@@ -215,6 +215,51 @@ grep -c . .env          # 有内容
 ls -l .env              # 权限应为 -rw-------
 ```
 
+### 4.5 一个容易踩的坑：不要照抄本地 `.env`
+
+`config/settings/base.py` 会主动读取仓库根目录的 `.env`（`load_dotenv`），
+**不管用的是 dev 还是 prod 配置**。这意味着：
+
+> 如果你把本机开发用的 `.env` 直接拷到服务器，那些开发值会**覆盖**生产配置，
+> 把本该打开的安全开关关掉 —— 而且不会有任何报错。
+
+最典型的是这两项：
+
+| 变量 | 开发值 | 必须的生产值 | 配错的后果 |
+|---|---|---|---|
+| `DJANGO_HTTPS_ENABLED` | `false` | `true` | 关闭 HSTS 与 HTTPS 跳转，流量可能走明文 |
+| `DJANGO_DEBUG` | `true` | `false` | 报错页会暴露源码片段与配置细节 |
+
+**所以服务器上的 `.env` 必须从 `.env.example` 重新生成，不要从本机复制。**
+
+配好后用这条命令核对（它会真正加载生产配置并打印关键开关）：
+
+```bash
+cd /srv/pingpong/app
+docker compose exec app python -c "
+import django, os
+django.setup()
+from django.conf import settings
+print('DEBUG          =', settings.DEBUG)
+print('HTTPS 跳转     =', settings.SECURE_SSL_REDIRECT)
+print('HSTS 秒数      =', settings.SECURE_HSTS_SECONDS)
+print('存储后端       =', settings.PRIVATE_STORAGE_BACKEND)
+print('数据目录       =', settings.PRIVATE_MEDIA_ROOT)
+"
+```
+
+**期望结果**：
+
+```
+DEBUG          = False
+HTTPS 跳转     = True
+HSTS 秒数      = 31536000
+存储后端       = local
+数据目录       = /data/private_media
+```
+
+出现 `DEBUG = True` 或 `HTTPS 跳转 = False`，说明 `.env` 里残留了开发值，回去改掉再重启。
+
 ---
 
 ## 5. 配置域名与 HTTPS
@@ -560,6 +605,7 @@ timedatectl     # 应显示 NTP synchronized: yes
 - [ ] `https://域名` 能打开，证书有效
 - [ ] `/health/live` 与 `/health/ready` 都返回 200
 - [ ] 管理员能登录 `/admin/`
+- [ ] **`DEBUG=False`、`HTTPS 跳转=True`**（见 4.5，别照抄本地 `.env`）
 - [ ] 上传一张图片 → 页面能显示 → 点开大图能看
 - [ ] 用普通干事账号登录，**看不到**别人的工作记录
 - [ ] 上传一个接近 300MB 的视频不报错
