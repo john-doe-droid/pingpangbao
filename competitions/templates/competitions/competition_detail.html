@@ -3,182 +3,217 @@
 {% block title %}{{ competition.name }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container pp-container">
 
-  <nav aria-label="面包屑" class="mb-2">
-    <ol class="breadcrumb small mb-0">
-      <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛管理</a></li>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛</a></li>
       <li class="breadcrumb-item active" aria-current="page">{{ competition.name }}</li>
     </ol>
   </nav>
 
-  {# ---------- 头部：名称、状态、操作 ---------- #}
-  <div class="card shadow-sm mb-3">
-    <div class="card-body p-4">
-      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-        <div class="flex-grow-1" style="min-width: 0;">
-          <h1 class="h4 fw-semibold mb-2 text-break">{{ competition.name }}</h1>
-          <div class="mb-2">
-            {% if competition.status == 'draft' %}
-              <span class="badge text-bg-secondary">草稿</span>
-              <span class="small text-body-secondary ms-1">尚未开放给干事查看</span>
-            {% elif competition.status == 'active' %}
-              <span class="badge text-bg-success">进行中</span>
-              <span class="small text-body-secondary ms-1">可配置任务与分配人员</span>
-            {% else %}
-              <span class="badge text-bg-dark">已归档</span>
-              <span class="small text-body-secondary ms-1">已停止接收新工作记录</span>
-            {% endif %}
-          </div>
-        </div>
-
-        {% if can_manage and not competition.is_archived %}
-          <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-sm btn-outline-secondary"
-               href="{% url 'competitions:update' competition.pk %}">修改信息</a>
-            {% if competition.is_draft %}
-              <form method="post" action="{% url 'competitions:activate' competition.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-success">开始进行</button>
-              </form>
-            {% endif %}
-            <button type="button" class="btn btn-sm btn-outline-danger"
-                    data-bs-toggle="modal" data-bs-target="#archiveModal">归档</button>
-          </div>
+  {# ---------- 头部 ---------- #}
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">{{ competition.name }}</h1>
+      <p class="pp-page-header__desc">
+        {% if competition.status == 'draft' %}
+          草稿状态 —— 尚未开放给干事查看
+        {% elif competition.status == 'active' %}
+          进行中 —— 可配置任务与分配人员
+        {% else %}
+          已归档 —— 已停止接收新工作记录
         {% endif %}
+      </p>
+    </div>
+    {% if can_manage and not competition.is_archived %}
+      <div class="pp-page-header__actions">
+        <a class="btn btn-outline-secondary"
+           href="{% url 'competitions:update' competition.pk %}">修改信息</a>
+        {% if competition.is_draft %}
+          <form method="post" action="{% url 'competitions:activate' competition.pk %}" class="m-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">开始进行</button>
+          </form>
+        {% endif %}
+        <button type="button" class="btn btn-outline-danger"
+                data-bs-toggle="modal" data-bs-target="#archiveModal">归档</button>
       </div>
+    {% endif %}
+  </div>
 
-      <dl class="row mb-0 mt-3 small">
-        <dt class="col-5 col-sm-3 col-lg-2 fw-normal text-body-secondary">比赛日期</dt>
-        <dd class="col-7 col-sm-9 col-lg-10 mb-1">{{ competition.event_date|date:"Y-m-d" }}</dd>
+  {# ---------- 状态说明 ---------- #}
+  {% if competition.is_draft %}
+    <div class="alert alert-info" role="alert">
+      <span>
+        这是一场<strong>草稿</strong>比赛。干事目前看不到它，也无法配置任务与分配人员。
+        确认信息无误后，点击上方「开始进行」。
+      </span>
+    </div>
+  {% elif competition.is_archived %}
+    <div class="alert alert-secondary" role="alert">
+      <span>
+        该比赛<strong>已归档</strong>：不能再新增任务或调整人员分配，但既有任务与分配记录全部保留，
+        仍可按规则完成审核与修改。
+      </span>
+    </div>
+  {% endif %}
 
-        <dt class="col-5 col-sm-3 col-lg-2 fw-normal text-body-secondary">默认截止</dt>
-        <dd class="col-7 col-sm-9 col-lg-10 mb-1">{{ competition.default_deadline|date:"Y-m-d H:i" }}</dd>
-
-        <dt class="col-5 col-sm-3 col-lg-2 fw-normal text-body-secondary">创建人</dt>
-        <dd class="col-7 col-sm-9 col-lg-10 mb-1">
-          {% if competition.created_by %}{{ competition.created_by.get_full_name }}{% else %}—{% endif %}
-          <span class="text-body-secondary">· {{ competition.created_at|date:"Y-m-d H:i" }}</span>
-        </dd>
-
-        {% if competition.is_archived %}
-          <dt class="col-5 col-sm-3 col-lg-2 fw-normal text-body-secondary">归档</dt>
-          <dd class="col-7 col-sm-9 col-lg-10 mb-1">
-            {% if competition.archived_by %}{{ competition.archived_by.get_full_name }}{% else %}—{% endif %}
-            <span class="text-body-secondary">· {{ competition.archived_at|date:"Y-m-d H:i" }}</span>
+  {# ---------- 基本信息 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">比赛信息</h2>
+      <span class="pp-status {% if competition.status == 'active' %}pp-status--success{% else %}pp-status--neutral{% endif %}">
+        <span class="pp-status__mark" aria-hidden="true"></span>
+        {% if competition.status == 'draft' %}草稿{% elif competition.status == 'active' %}进行中{% else %}已归档{% endif %}
+      </span>
+    </div>
+    <div class="pp-surface__body">
+      <dl class="pp-dl">
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">比赛日期</dt>
+          <dd class="pp-dl__value">{{ competition.event_date|date:"Y-m-d" }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">默认截止</dt>
+          <dd class="pp-dl__value">{{ competition.default_deadline|date:"Y-m-d H:i" }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">创建人</dt>
+          <dd class="pp-dl__value">
+            {% if competition.created_by %}{{ competition.created_by.get_full_name }}{% else %}—{% endif %}
+            <span class="pp-meta">· {{ competition.created_at|date:"Y-m-d H:i" }}</span>
           </dd>
+        </div>
+        {% if competition.is_archived %}
+          <div class="pp-dl__row">
+            <dt class="pp-dl__label">归档</dt>
+            <dd class="pp-dl__value">
+              {% if competition.archived_by %}{{ competition.archived_by.get_full_name }}{% else %}—{% endif %}
+              <span class="pp-meta">· {{ competition.archived_at|date:"Y-m-d H:i" }}</span>
+            </dd>
+          </div>
         {% endif %}
-
         {% if competition.description %}
-          <dt class="col-12 fw-normal text-body-secondary mt-2">比赛说明</dt>
-          <dd class="col-12 mb-0">{{ competition.description|linebreaksbr }}</dd>
+          <div class="pp-dl__row">
+            <dt class="pp-dl__label">比赛说明</dt>
+            <dd class="pp-dl__value">{{ competition.description|linebreaksbr }}</dd>
+          </div>
         {% endif %}
       </dl>
     </div>
   </div>
 
-  {# ---------- 草稿/归档提示 ---------- #}
-  {% if competition.is_draft %}
-    <div class="alert alert-info" role="alert">
-      这是一场<strong>草稿</strong>比赛。干事目前看不到它，也无法配置任务与分配人员。
-      确认信息无误后，点击上方「开始进行」。
-    </div>
-  {% elif competition.is_archived %}
-    <div class="alert alert-secondary" role="alert">
-      该比赛<strong>已归档</strong>：不能再新增任务或调整人员分配，但既有任务与分配记录全部保留，
-      后续阶段仍可按规则完成审核与修改。
-    </div>
-  {% endif %}
-
   {# ---------- 审核人授权 ---------- #}
-  <div class="card shadow-sm mb-3">
-    <div class="card-body">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <h2 class="h6 fw-semibold mb-0">审核人授权</h2>
-        {% if can_manage_reviewers %}
-          <a class="btn btn-sm btn-outline-primary"
-             href="{% url 'competitions:reviewers' competition.pk %}">管理审核人</a>
-        {% endif %}
-      </div>
-
-      {% if reviewer_assignments %}
-        <ul class="list-unstyled mb-0 mt-3">
-          {% for assignment in reviewer_assignments %}
-            <li class="d-flex justify-content-between align-items-center border-bottom py-2">
-              <span>{{ assignment.reviewer.get_full_name }}</span>
-              <span class="small text-body-secondary">
-                授权于 {{ assignment.granted_at|date:"Y-m-d" }}
-              </span>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-body-secondary small mb-0 mt-3">
-          尚未授权任何审核人。审核权需要逐场授权，管理员身份本身不自动获得审核权。
-        </p>
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">审核人授权</h2>
+      {% if can_manage_reviewers %}
+        <a class="btn btn-sm btn-outline-secondary"
+           href="{% url 'competitions:reviewers' competition.pk %}">管理审核人</a>
       {% endif %}
     </div>
+
+    {% if reviewer_assignments %}
+      <ul class="pp-list">
+        {% for assignment in reviewer_assignments %}
+          <li class="pp-list__item pp-list__item--split">
+            <span class="pp-list__main">
+              <span class="pp-list__name">{{ assignment.reviewer.get_full_name }}</span>
+            </span>
+            <span class="pp-meta">授权于 {{ assignment.granted_at|date:"Y-m-d" }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="pp-empty" style="padding: var(--pp-space-6) var(--pp-space-4);">
+        <p class="pp-empty__title">尚未授权任何审核人</p>
+        <p class="pp-empty__desc">
+          审核权需要逐场授权，管理员身份本身不自动获得审核权。
+          未授权时，本场记录不会出现在任何人的审核队列里。
+        </p>
+        {% if can_manage_reviewers %}
+          <a class="btn btn-primary"
+             href="{% url 'competitions:reviewers' competition.pk %}">去授权</a>
+        {% endif %}
+      </div>
+    {% endif %}
   </div>
 
   {# ---------- 任务列表 ---------- #}
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h2 class="h6 fw-semibold mb-0">任务（{{ tasks|length }}）</h2>
-        {% if can_configure_tasks %}
-          <a class="btn btn-sm btn-primary"
-             href="{% url 'tasks_admin:task_create' competition.pk %}">＋ 从模板添加任务</a>
-        {% endif %}
-      </div>
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">任务</h2>
+      <span class="pp-meta">{{ tasks|length }} 项</span>
+      {% if can_configure_tasks %}
+        <a class="btn btn-sm btn-primary"
+           href="{% url 'tasks_admin:task_create' competition.pk %}">从模板添加任务</a>
+      {% endif %}
+    </div>
 
-      {% if tasks %}
+    {% if tasks %}
+      <div class="pp-surface__body pp-surface__body--flush">
         <div class="table-responsive">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+          <table class="table pp-table-stack align-middle">
+            <caption class="visually-hidden">本场比赛的任务，共 {{ tasks|length }} 项</caption>
+            <thead>
               <tr>
                 <th scope="col">任务名称</th>
                 <th scope="col" class="d-none d-md-table-cell">工作类型</th>
                 <th scope="col">生效截止</th>
-                <th scope="col" class="text-center">已分配</th>
-                <th scope="col" class="text-end">操作</th>
+                <th scope="col" class="pp-num">已分配</th>
+                {% if can_manage %}<th scope="col" class="pp-num">操作</th>{% endif %}
               </tr>
             </thead>
             <tbody>
               {% for task in tasks %}
                 <tr>
-                  <td>
-                    <span class="fw-semibold">{{ task.name }}</span>
-                    <div class="small text-body-secondary">{{ task.snapshot_summary }}</div>
+                  <td class="pp-cell-lead" data-label="任务名称">
+                    <span class="pp-cell-primary">{{ task.name }}</span>
+                    <div class="pp-cell-sub">{{ task.snapshot_summary }}</div>
                   </td>
-                  <td class="d-none d-md-table-cell">{{ task.work_type.name }}</td>
-                  <td>
-                    <span class="d-block">{{ task.effective_deadline|date:"Y-m-d H:i" }}</span>
-                    <span class="small text-body-secondary">
+                  <td class="d-none d-md-table-cell" data-label="工作类型">
+                    {{ task.work_type.name }}
+                  </td>
+                  <td data-label="生效截止">
+                    {{ task.effective_deadline|date:"Y-m-d H:i" }}
+                    <div class="pp-cell-sub">
                       {% if task.deadline %}任务独立设置{% else %}继承自比赛{% endif %}
-                    </span>
+                    </div>
                   </td>
-                  <td class="text-center">
-                    <span class="badge text-bg-light border">{{ task.active_assignment_count }} 人</span>
+                  <td class="pp-num" data-label="已分配">
+                    {{ task.active_assignment_count }} 人
                   </td>
-                  <td class="text-end">
-                    {% if can_manage %}
+                  {% if can_manage %}
+                    <td class="pp-num pp-cell-actions" data-label="操作">
                       <a class="btn btn-sm btn-outline-secondary"
                          href="{% url 'tasks_admin:task_detail' task.pk %}">管理分配</a>
-                    {% endif %}
-                  </td>
+                    </td>
+                  {% endif %}
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-      {% else %}
-        <p class="text-body-secondary small mb-0">
-          这场比赛还没有任务。
-          {% if competition.is_draft %}先点击「开始进行」才能添加。{% endif %}
-          {% if competition.is_archived %}比赛已归档，不能新增任务。{% endif %}
+      </div>
+    {% else %}
+      <div class="pp-empty" style="padding: var(--pp-space-6) var(--pp-space-4);">
+        <p class="pp-empty__title">这场比赛还没有任务</p>
+        <p class="pp-empty__desc">
+          {% if competition.is_draft %}
+            先点击上方「开始进行」，然后才能从模板添加任务。
+          {% elif competition.is_archived %}
+            比赛已归档，不能新增任务。
+          {% else %}
+            从模板添加任务后，才能把任务分配给干事。
+          {% endif %}
         </p>
-      {% endif %}
-    </div>
+        {% if can_configure_tasks %}
+          <a class="btn btn-primary"
+             href="{% url 'tasks_admin:task_create' competition.pk %}">从模板添加任务</a>
+        {% endif %}
+      </div>
+    {% endif %}
   </div>
 
 </div>
@@ -191,16 +226,16 @@
         <form method="post" action="{% url 'competitions:archive' competition.pk %}">
           {% csrf_token %}
           <div class="modal-header">
-            <h3 class="modal-title h6" id="archiveModalLabel">确认归档这场比赛？</h3>
+            <h2 class="modal-title pp-section-title" id="archiveModalLabel">确认归档这场比赛？</h2>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
           </div>
           <div class="modal-body">
             <p class="mb-2">归档后将<strong>停止新增工作记录</strong>：不能再添加任务或调整人员分配。</p>
-            <p class="mb-3 text-body-secondary small">
-              既有任务与分配记录会全部保留，后续阶段仍可按规则完成审核与修改。
+            <p class="pp-meta mb-3">
+              既有任务与分配记录会全部保留，仍可按规则完成审核与修改。
               本操作不会删除任何数据。
             </p>
-            <label for="{{ archive_form.confirm_name.id_for_label }}" class="form-label small">
+            <label for="{{ archive_form.confirm_name.id_for_label }}" class="form-label">
               请输入比赛名称以确认：<code>{{ competition.name }}</code>
             </label>
             <input type="text" name="confirm_name" id="{{ archive_form.confirm_name.id_for_label }}"

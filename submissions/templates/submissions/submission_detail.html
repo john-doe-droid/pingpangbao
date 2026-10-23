@@ -3,177 +3,218 @@
 {% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-lg-9 col-xl-8">
+<div class="container pp-container pp-container--narrow">
 
-      <nav aria-label="面包屑" class="mb-2">
-        <ol class="breadcrumb small mb-0">
-          <li class="breadcrumb-item">
-            <a href="{% url 'submissions:my_submissions' %}">我的工作记录</a>
-          </li>
-          <li class="breadcrumb-item active" aria-current="page">详情</li>
-        </ol>
-      </nav>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="{% url 'submissions:my_submissions' %}">我的工作记录</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">记录详情</li>
+    </ol>
+  </nav>
 
-      {# ---------- 状态与基本信息 ---------- #}
-      <div class="card shadow-sm mb-3">
-        <div class="card-body p-4">
-          <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-            <h1 class="h5 fw-semibold mb-0 text-break">{{ submission.task.name }}</h1>
-            {% if submission.status == 'pending' %}
-              <span class="badge text-bg-warning">待审核</span>
-            {% elif submission.status == 'needs_revision' %}
-              <span class="badge text-bg-danger">退回修改</span>
-            {% else %}
-              <span class="badge text-bg-success">审核通过</span>
-            {% endif %}
+  {# ---------- 概要 ---------- #}
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">{{ submission.task.name }}</h1>
+      <p class="pp-page-header__desc">{{ competition.name }} · {{ submission.task.work_type.name }}</p>
+    </div>
+    <div class="pp-page-header__actions">
+      {% if submission.status == 'pending' %}
+        <span class="pp-status pp-status--warning">
+          <span class="pp-status__mark" aria-hidden="true"></span>待审核</span>
+      {% elif submission.status == 'needs_revision' %}
+        <span class="pp-status pp-status--danger">
+          <span class="pp-status__mark" aria-hidden="true"></span>退回修改</span>
+      {% else %}
+        <span class="pp-status pp-status--success">
+          <span class="pp-status__mark" aria-hidden="true"></span>审核通过</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---------- 主要操作 ---------- #}
+  {% if is_owner and submission.status == 'needs_revision' %}
+    <div class="pp-surface" style="border-color: var(--pp-danger-border);">
+      <div class="pp-surface__body" style="display: flex; flex-wrap: wrap; gap: var(--pp-space-3); align-items: center; justify-content: space-between;">
+        <span class="pp-meta" style="margin: 0;">
+          这条记录已被退回，请按审核意见修改后重新提交。不占用新增次数。
+        </span>
+        <a class="btn btn-primary"
+           href="{% url 'submissions:submit_revision' submission.pk %}">修改并重新提交</a>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if can_review %}
+    <div class="pp-inline-actions" style="margin-bottom: var(--pp-space-4);">
+      <a class="btn btn-primary"
+         href="{% url 'submissions:review_submission' submission.pk %}">审核这条记录</a>
+      {% if can_reopen %}
+        <a class="btn btn-outline-secondary"
+           href="{% url 'submissions:reopen_submission' submission.pk %}">发起重新审核</a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {# ---------- 基本信息 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">基本信息</h2>
+    </div>
+    <div class="pp-surface__body">
+      <dl class="pp-dl">
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">比赛</dt>
+          <dd class="pp-dl__value">{{ competition.name }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">工作类型</dt>
+          <dd class="pp-dl__value">{{ submission.task.work_type.name }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">提交人</dt>
+          <dd class="pp-dl__value">{{ submission.assignment.member.get_full_name }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">已提交版本</dt>
+          <dd class="pp-dl__value">{{ submission.edition_count }} 版</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  {# ---------- 版本历史 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">提交版本</h2>
+      <span class="pp-meta">{{ versions|length }} 版</span>
+    </div>
+    <div class="pp-surface__body">
+      {% for version in versions %}
+        <div class="pp-version {% if forloop.first %}pp-version--current{% endif %}">
+          <div class="pp-version__head">
+            <span class="pp-version__no">
+              第 {{ version.version_no }} 版
+              {% if forloop.first %}
+                <span class="pp-status pp-status--info">
+                  <span class="pp-status__mark" aria-hidden="true"></span>当前</span>
+              {% endif %}
+            </span>
+            <span class="pp-meta">
+              {{ version.submitted_by.get_short_name }} · {{ version.submitted_at|date:"Y-m-d H:i" }}
+              {% if version.is_overdue %}
+                <span class="pp-status pp-status--danger" style="margin-left: var(--pp-space-1);">
+                  <span class="pp-status__mark" aria-hidden="true"></span>逾期提交</span>
+              {% endif %}
+            </span>
           </div>
 
-          <dl class="row small mb-0">
-            <dt class="col-5 col-sm-3 fw-normal text-body-secondary">比赛</dt>
-            <dd class="col-7 col-sm-9 mb-1">{{ competition.name }}</dd>
-            <dt class="col-5 col-sm-3 fw-normal text-body-secondary">工作类型</dt>
-            <dd class="col-7 col-sm-9 mb-1">{{ submission.task.work_type.name }}</dd>
-            <dt class="col-5 col-sm-3 fw-normal text-body-secondary">提交人</dt>
-            <dd class="col-7 col-sm-9 mb-1">{{ submission.assignment.member.get_full_name }}</dd>
-            <dt class="col-5 col-sm-3 fw-normal text-body-secondary">已提交版本</dt>
-            <dd class="col-7 col-sm-9 mb-1">{{ submission.edition_count }} 版</dd>
-          </dl>
-        </div>
-      </div>
-
-      {% if is_owner and submission.status == 'needs_revision' %}
-        <div class="d-grid mb-3">
-          <a class="btn btn-primary" href="{% url 'submissions:submit_revision' submission.pk %}">
-            修改并重新提交（不占用新增次数）
-          </a>
-        </div>
-      {% endif %}
-
-      {% if can_review %}
-        <div class="d-grid gap-2 d-sm-flex mb-3">
-          <a class="btn btn-primary" href="{% url 'submissions:review_submission' submission.pk %}">
-            审核这条记录
-          </a>
-          {% if can_reopen %}
-            <a class="btn btn-outline-warning" href="{% url 'submissions:reopen_submission' submission.pk %}">
-              发起重新审核
-            </a>
+          {% if version.text_content %}
+            <p class="pp-version__text">{{ version.text_content }}</p>
+          {% else %}
+            <p class="pp-meta">（本次未填写文字说明）</p>
           {% endif %}
-        </div>
-      {% endif %}
 
-      {# ---------- 版本历史（含材料，旧版本不被覆盖）---------- #}
-      <div class="card shadow-sm mb-3">
-        <div class="card-header bg-white fw-semibold">提交版本（{{ versions|length }}）</div>
-        <div class="card-body">
-          {% for version in versions %}
-            <div class="border rounded p-3 mb-3 {% if forloop.first %}border-primary{% endif %}">
-              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                <span class="fw-semibold">
-                  第 {{ version.version_no }} 版
-                  {% if forloop.first %}<span class="badge text-bg-primary ms-1">当前</span>{% endif %}
-                </span>
-                <span class="small text-body-secondary">
-                  {{ version.submitted_by.get_short_name }} · {{ version.submitted_at|date:"Y-m-d H:i" }}
-                  {% if version.is_overdue %}<span class="badge text-bg-danger ms-1">逾期提交</span>{% endif %}
-                </span>
+          {# --- 图片：缩略图，点击看原图 --- #}
+          {% with images=version.image_attachments %}
+            {% if images %}
+              <div class="pp-thumbs">
+                {% for att in images %}
+                  <a class="pp-thumb" href="{% url 'submissions:attachment_download' att.pk %}"
+                     target="_blank" rel="noopener" title="{{ att.original_name }}">
+                    {% with thumb=att.thumbnails.first %}
+                      {% if thumb %}
+                        <img src="{% url 'submissions:attachment_download' thumb.pk %}"
+                             alt="{{ att.original_name }}" loading="lazy">
+                      {% else %}
+                        <span class="pp-thumb__fallback">{{ att.original_name }}</span>
+                      {% endif %}
+                    {% endwith %}
+                  </a>
+                {% endfor %}
               </div>
+            {% endif %}
+          {% endwith %}
 
-              {% if version.text_content %}
-                <p class="small mb-2" style="white-space: pre-wrap;">{{ version.text_content }}</p>
-              {% else %}
-                <p class="small text-body-secondary mb-2">（本次未填写文字说明）</p>
-              {% endif %}
+          {# --- 链接 --- #}
+          {% for att in version.link_attachments %}
+            <div class="pp-attach-row">
+              <span class="pp-attach-row__type">作品链接</span>
+              <a href="{{ att.external_url }}" target="_blank" rel="noopener noreferrer"
+                 class="pp-attach-row__value">{{ att.external_url }}</a>
+            </div>
+          {% endfor %}
 
-              {# --- 图片：展示缩略图，点击看主图 --- #}
-              {% with images=version.image_attachments %}
-                {% if images %}
-                  <div class="d-flex flex-wrap gap-2 mb-2">
-                    {% for att in images %}
-                      <a href="{% url 'submissions:attachment_download' att.pk %}" target="_blank" rel="noopener">
-                        {% with thumb=att.thumbnails.first %}
-                          {% if thumb %}
-                            <img src="{% url 'submissions:attachment_download' thumb.pk %}"
-                                 alt="{{ att.original_name }}"
-                                 class="rounded border" loading="lazy"
-                                 style="width:110px;height:110px;object-fit:cover;">
-                          {% else %}
-                            <span class="badge text-bg-light border p-3">{{ att.original_name }}</span>
-                          {% endif %}
-                        {% endwith %}
-                      </a>
-                    {% endfor %}
-                  </div>
-                {% endif %}
-              {% endwith %}
+          {% for att in version.file_attachments %}
+            <div class="pp-attach-row">
+              <span class="pp-attach-row__type">文件</span>
+              <a href="{% url 'submissions:attachment_download' att.pk %}"
+                 class="pp-attach-row__value">{{ att.original_name }}</a>
+            </div>
+          {% endfor %}
 
-              {# --- 链接 --- #}
-              {% for att in version.link_attachments %}
-                <div class="small mb-1">
-                  <span class="text-body-secondary">作品链接：</span>
-                  <a href="{{ att.external_url }}" target="_blank" rel="noopener noreferrer">{{ att.external_url }}</a>
-                </div>
-              {% endfor %}
-
-              {# --- 其它文件 / 视频 --- #}
-              {% for att in version.file_attachments %}
-                <div class="small mb-1">
-                  <span class="text-body-secondary">文件：</span>
-                  <a href="{% url 'submissions:attachment_download' att.pk %}">{{ att.original_name }}</a>
-                </div>
-              {% endfor %}
-              {% for att in version.video_attachments %}
-                <div class="small mb-1">
-                  <span class="text-body-secondary">视频：</span>
-                  <a href="{% url 'submissions:attachment_download' att.pk %}">{{ att.original_name }}</a>
-                </div>
-              {% endfor %}
+          {% for att in version.video_attachments %}
+            <div class="pp-attach-row">
+              <span class="pp-attach-row__type">视频</span>
+              <a href="{% url 'submissions:attachment_download' att.pk %}"
+                 class="pp-attach-row__value">{{ att.original_name }}</a>
             </div>
           {% endfor %}
         </div>
-      </div>
-
-      {# ---------- 审核历史（含退回理由）---------- #}
-      <div class="card shadow-sm">
-        <div class="card-header bg-white fw-semibold">审核记录（{{ review_logs|length }}）</div>
-        <div class="card-body">
-          {% if review_logs %}
-            <ul class="list-unstyled mb-0">
-              {% for log in review_logs %}
-                <li class="border-bottom py-2">
-                  <div class="d-flex flex-wrap justify-content-between gap-2">
-                    <span>
-                      {% if log.action == 'approve' %}
-                        <span class="badge text-bg-success">通过</span>
-                      {% elif log.action == 'reject' %}
-                        <span class="badge text-bg-danger">退回修改</span>
-                      {% else %}
-                        <span class="badge text-bg-warning">发起重新审核</span>
-                      {% endif %}
-                      <span class="small ms-1">第 {{ log.version.version_no }} 版</span>
-                    </span>
-                    <span class="small text-body-secondary">
-                      {{ log.reviewer.get_short_name }} · {{ log.acted_at|date:"Y-m-d H:i" }}
-                    </span>
-                  </div>
-                  {% if log.reopen_reason %}
-                    <div class="small mt-1"><span class="text-body-secondary">重新审核原因：</span>{{ log.reopen_reason }}</div>
-                  {% endif %}
-                  {% if log.comment %}
-                    <div class="small mt-1"><span class="text-body-secondary">审核意见：</span>{{ log.comment }}</div>
-                  {% endif %}
-                </li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <p class="text-body-secondary small mb-0">还没有审核记录。</p>
-          {% endif %}
-        </div>
-      </div>
-
+      {% endfor %}
     </div>
   </div>
+
+  {# ---------- 审核记录 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">审核记录</h2>
+      <span class="pp-meta">{{ review_logs|length }} 条</span>
+    </div>
+    {% if review_logs %}
+      <ul class="pp-list">
+        {% for log in review_logs %}
+          <li class="pp-list__item">
+            <div class="pp-log__head">
+              <span>
+                {% if log.action == 'approve' %}
+                  <span class="pp-status pp-status--success">
+                    <span class="pp-status__mark" aria-hidden="true"></span>通过</span>
+                {% elif log.action == 'reject' %}
+                  <span class="pp-status pp-status--danger">
+                    <span class="pp-status__mark" aria-hidden="true"></span>退回修改</span>
+                {% else %}
+                  <span class="pp-status pp-status--warning">
+                    <span class="pp-status__mark" aria-hidden="true"></span>发起重新审核</span>
+                {% endif %}
+                <span class="pp-meta" style="margin-left: var(--pp-space-2);">第 {{ log.version.version_no }} 版</span>
+              </span>
+              <span class="pp-meta">
+                {{ log.reviewer.get_short_name }} · {{ log.acted_at|date:"Y-m-d H:i" }}
+              </span>
+            </div>
+            {% if log.reopen_reason %}
+              <div class="pp-log__body">
+                <span class="pp-log__label">重新审核原因</span>{{ log.reopen_reason }}
+              </div>
+            {% endif %}
+            {% if log.comment %}
+              <div class="pp-log__body">
+                <span class="pp-log__label">审核意见</span>{{ log.comment }}
+              </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="pp-empty" style="padding: var(--pp-space-6) var(--pp-space-4);">
+        <p class="pp-empty__title">还没有审核记录</p>
+        <p class="pp-empty__desc">记录处于待审核状态，审核人处理后这里会显示结果与意见。</p>
+      </div>
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}

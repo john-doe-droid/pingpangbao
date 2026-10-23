@@ -3,89 +3,97 @@
 {% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-lg-9 col-xl-8">
+<div class="container pp-container pp-container--form">
 
-      <nav aria-label="面包屑" class="mb-2">
-        <ol class="breadcrumb small mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛管理</a></li>
-          <li class="breadcrumb-item">
-            <a href="{% url 'competitions:detail' competition.pk %}">{{ competition.name }}</a>
-          </li>
-          <li class="breadcrumb-item active" aria-current="page">审核人授权</li>
-        </ol>
-      </nav>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛</a></li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'competitions:detail' competition.pk %}">{{ competition.name }}</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">审核人授权</li>
+    </ol>
+  </nav>
 
-      <div class="alert alert-info small" role="alert">
-        <strong>审核权需要逐场授权。</strong>
-        被授权的人可以在本场比赛中审核工作成果；社团管理员身份本身<strong>不</strong>自动获得审核权，
-        「全局查看」权限也不会推导出审核权。
-      </div>
-
-      <div class="card shadow-sm mb-3">
-        <div class="card-body p-4">
-          <h1 class="h5 fw-semibold mb-3">为该比赛添加审核人</h1>
-          <form method="post" novalidate>
-            {% csrf_token %}
-            <div class="mb-3">
-              <label for="{{ form.reviewers.id_for_label }}" class="form-label">
-                {{ form.reviewers.label }}
-              </label>
-              {{ form.reviewers }}
-              {% if form.reviewers.help_text %}
-                <div class="form-text">{{ form.reviewers.help_text }}</div>
-              {% endif %}
-              {% for error in form.reviewers.errors %}
-                <div class="text-danger small mt-1">{{ error }}</div>
-              {% endfor %}
-            </div>
-            <button type="submit" class="btn btn-primary">添加授权</button>
-            <a class="btn btn-outline-secondary"
-               href="{% url 'competitions:detail' competition.pk %}">返回比赛</a>
-          </form>
-        </div>
-      </div>
-
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <h2 class="h6 fw-semibold mb-3">
-            当前审核人（{{ assignments|length }}）
-          </h2>
-
-          {% if assignments %}
-            <ul class="list-group list-group-flush">
-              {% for assignment in assignments %}
-                <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2 px-0">
-                  <span>
-                    <span class="fw-semibold">{{ assignment.reviewer.real_name }}</span>
-                    <span class="text-body-secondary small">（{{ assignment.reviewer.student_id }}）</span>
-                    <div class="small text-body-secondary">
-                      授权于 {{ assignment.granted_at|date:"Y-m-d H:i" }}
-                      {% if assignment.granted_by %}
-                        · 授权人 {{ assignment.granted_by.get_short_name }}
-                      {% endif %}
-                    </div>
-                  </span>
-                  <form method="post"
-                        action="{% url 'competitions:reviewer_revoke' competition.pk assignment.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-danger">撤销授权</button>
-                  </form>
-                </li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <p class="text-body-secondary small mb-0">当前没有审核人。</p>
-          {% endif %}
-
-          <p class="small text-body-secondary mt-3 mb-0">
-            撤销不会删除记录，历史授权与撤销时间都会保留，便于事后追溯。
-          </p>
-        </div>
-      </div>
-
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">审核人授权</h1>
+      <p class="pp-page-header__desc">
+        审核权<strong>需要逐场授权</strong>。被授权的人可以在本场比赛中审核工作成果；
+        社团管理员身份本身不自动获得审核权。
+      </p>
     </div>
   </div>
+
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">添加审核人</h2>
+    </div>
+    <div class="pp-surface__body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+          <label for="{{ form.reviewers.id_for_label }}" class="form-label">
+            {{ form.reviewers.label }}
+          </label>
+          {{ form.reviewers }}
+          {% if form.reviewers.help_text %}
+            <div class="form-text">{{ form.reviewers.help_text }}</div>
+          {% endif %}
+          {% for error in form.reviewers.errors %}
+            <div class="pp-field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <div class="pp-inline-actions">
+          <button type="submit" class="btn btn-primary">添加授权</button>
+          <a class="btn btn-outline-secondary"
+             href="{% url 'competitions:detail' competition.pk %}">返回比赛</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">当前审核人</h2>
+      <span class="pp-meta">{{ assignments|length }} 人</span>
+    </div>
+
+    {% if assignments %}
+      <ul class="pp-list">
+        {% for assignment in assignments %}
+          <li class="pp-list__item pp-list__item--split">
+            <span class="pp-list__main">
+              <span class="pp-list__name">
+                {{ assignment.reviewer.real_name }}
+                <span class="pp-cell-sub" style="display:inline;">
+                  （{{ assignment.reviewer.student_id }}）
+                </span>
+              </span>
+              <span class="pp-list__desc">
+                授权于 {{ assignment.granted_at|date:"Y-m-d H:i" }}
+                {% if assignment.granted_by %}· 授权人 {{ assignment.granted_by.get_short_name }}{% endif %}
+              </span>
+            </span>
+            <form method="post"
+                  action="{% url 'competitions:reviewer_revoke' competition.pk assignment.pk %}"
+                  class="m-0">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger">撤销授权</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="pp-surface__footer">
+        撤销不会删除记录，历史授权与撤销时间都会保留，便于事后追溯。
+      </div>
+    {% else %}
+      <div class="pp-empty" style="padding: var(--pp-space-6) var(--pp-space-4);">
+        <p class="pp-empty__title">当前没有审核人</p>
+        <p class="pp-empty__desc">未经授权时，该比赛的记录不会出现在任何人的审核队列里。</p>
+      </div>
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}

@@ -491,19 +491,35 @@ class TestMemberPages:
         assert "截止时间" in body                       # 生效截止时间
         assert "进行中" in body or "已逾期" in body      # 逾期/状态
 
-    def test_my_task_detail_states_submission_not_ready(self, logged_in_client,
-                                                        member_user, task,
-                                                        make_assignment):
-        """本阶段必须明确说明提交功能尚未开放。"""
+    def test_my_task_detail_points_to_real_submission_entry(self, logged_in_client,
+                                                            member_user, task,
+                                                            make_assignment):
+        """任务详情页必须把用户引向真实可用的提交入口。
+
+        原断言是「本页必须写明『提交功能将在后续阶段开放』，且不得出现提交按钮」
+        —— 那是 P2 时期的事实（当时还没有提交功能）。P3 已实现提交，
+        该断言的前提失效，故按当前真实契约改写，而不是直接删掉：
+          · 不再出现任何"以后才开放"的误导文案；
+          · 必须给出可用的提交路径（指向 /my/submissions/ 的入口）；
+          · 本页仍不放置能直接提交的表单 —— 提交动作集中在我的工作记录页，
+            避免同一动作两处入口、状态可能不一致。
+        """
         make_assignment(task, member_user)
         client = logged_in_client.as_(member_user)
         resp = client.get(reverse("tasks:my_task_detail", args=[task.pk]))
         body = resp.content.decode("utf-8")
+        assert resp.status_code == 200
 
-        assert "提交功能将在后续阶段开放" in body
-        # 不得出现看起来能用的提交按钮
+        # 1) 不得再出现"尚未开放"的过时说法
+        assert "后续阶段开放" not in body, "提交功能已实现，不应再声称未开放"
+        assert "尚未开放" not in body
+
+        # 2) 必须提供真实可用的提交入口
+        assert reverse("submissions:my_submissions") in body, (
+            "任务详情页应把用户引向「我的工作记录」以提交成果")
+
+        # 3) 提交区块内不应出现直接提交的表单按钮（集中到工作记录页）
         assert "提交工作成果" in body
-        assert "type=\"submit\"" not in body.split("提交功能将在后续阶段开放")[0].split("提交工作成果")[-1]
 
     def test_overdue_marker(self, logged_in_client, member_user, make_task,
                             template, make_assignment):

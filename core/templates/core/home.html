@@ -1,63 +1,67 @@
 {% extends "base.html" %}
 
-{% block title %}首页 · {{ SITE_NAME }}{% endblock %}
+{% block title %}工作台 · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-  <div class="row justify-content-center">
-    <div class="col-12 col-lg-10 col-xl-8">
+<div class="container pp-container">
 
-      <div class="text-center mb-5">
-        <h1 class="display-6 fw-semibold mb-3">乒乓球社工作统计</h1>
-        <p class="lead text-body-secondary mb-0">
-          比赛、任务与人员分配已可用；工作成果提交与审核将在后续阶段开放。
-        </p>
-      </div>
-
-      {# ---------- 可用入口 ---------- #}
-      <div class="card shadow-sm mb-4">
-        <div class="card-header bg-white fw-semibold">可用入口</div>
-        <div class="card-body">
-          <div class="d-grid gap-2 d-sm-flex flex-wrap">
-            {% for entry in entries %}
-              <a class="btn {% if entry.primary %}btn-primary{% else %}btn-outline-secondary{% endif %}"
-                 href="{{ entry.url }}">{{ entry.label }}</a>
-            {% endfor %}
-            <a class="btn btn-outline-secondary" href="{% url 'core:health_live' %}">/health/live</a>
-            {% if user.is_authenticated %}
-              <a class="btn btn-outline-secondary" href="/admin/">管理后台</a>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      {# ---------- 当前可用能力 ---------- #}
-      <div class="card shadow-sm">
-        <div class="card-header bg-white fw-semibold">当前可用能力</div>
-        <ul class="list-group list-group-flush">
-          {% for item in checks %}
-            <li class="list-group-item d-flex align-items-start gap-3 py-3">
-              <span class="badge rounded-pill text-bg-success flex-shrink-0 mt-1">就绪</span>
-              <span>
-                <span class="fw-semibold d-block">{{ item.name }}</span>
-                <span class="text-body-secondary small">{{ item.desc }}</span>
-              </span>
-            </li>
-          {% endfor %}
-          <li class="list-group-item d-flex align-items-start gap-3 py-3 bg-body-tertiary">
-            <span class="badge rounded-pill text-bg-secondary flex-shrink-0 mt-1">后续</span>
-            <span>
-              <span class="fw-semibold d-block">工作成果提交与审核</span>
-              <span class="text-body-secondary small">
-                附件上传、正式审核流程、Excel 报表与贡献积分属于后续阶段。
-                当前干事端任务详情页会明确标注「提交功能将在后续阶段开放」。
-              </span>
-            </span>
-          </li>
-        </ul>
-      </div>
-
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">工作台</h1>
+      <p class="pp-page-header__desc">
+        选择下面任一入口开始工作。你只会看到与自己相关的数据。
+      </p>
     </div>
   </div>
+
+  {# ---------- 入口 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">从哪里开始</h2>
+    </div>
+    <div class="pp-surface__body">
+      <div class="pp-entry-grid">
+        {% for entry in entries %}
+          <a class="pp-entry {% if entry.primary %}pp-entry--primary{% endif %}"
+             href="{{ entry.url }}">
+            <span class="pp-entry__label">{{ entry.label }}</span>
+            <svg class="pp-entry__arrow" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        {% endfor %}
+      </div>
+
+      {# 运维类入口只给超级管理员：普通干事不需要"服务状态"这类信息 #}
+      {% if user.is_superuser %}
+        <div class="pp-home-links">
+          <a href="/admin/">后台管理</a>
+          <a href="{% url 'core:health_live' %}">服务状态</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---------- 能力说明 ----------
+     checks 里前两条（工程底座 / 用户与角色）是面向管理员的实现说明，
+     对普通干事没有意义，因此只在管理员视图里显示。 #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">系统能做什么</h2>
+    </div>
+    <ul class="pp-list">
+      {% for item in checks %}
+        {% if user.is_superuser or item.name != '工程底座' and item.name != '用户与角色' %}
+          <li class="pp-list__item">
+            <span class="pp-list__name">{{ item.name }}</span>
+            <span class="pp-list__desc">{{ item.desc }}</span>
+          </li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  </div>
+
 </div>
 {% endblock %}

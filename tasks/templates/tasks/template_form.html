@@ -3,144 +3,237 @@
 {% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-lg-9 col-xl-8">
+<div class="container pp-container pp-container--form">
 
-      <nav aria-label="面包屑" class="mb-2">
-        <ol class="breadcrumb small mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'tasks_admin:template_list' %}">任务模板</a></li>
-          <li class="breadcrumb-item active" aria-current="page">
-            {% if is_create %}新建{% else %}修改{% endif %}
-          </li>
-        </ol>
-      </nav>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'tasks_admin:template_list' %}">任务模板</a></li>
+      <li class="breadcrumb-item active" aria-current="page">
+        {% if is_create %}新建{% else %}修改{% endif %}
+      </li>
+    </ol>
+  </nav>
 
-      {% if not is_create and used_count %}
-        <div class="alert alert-warning small" role="alert">
-          该模板已被 <strong>{{ used_count }}</strong> 个比赛任务使用。
-          修改这里<strong>不会</strong>改变那些任务 —— 它们在创建时就冻结了当时的规则快照。
-          如需对某场比赛生效，请在该场比赛下另建任务。
-        </div>
-      {% endif %}
+  {% if not is_create and used_count %}
+    <div class="alert alert-warning" role="alert">
+      <span>
+        该模板已被 <strong>{{ used_count }}</strong> 个比赛任务使用。
+        修改这里<strong>不会</strong>改变那些任务 —— 它们在创建时就冻结了当时的规则快照。
+        如需对某场比赛生效，请在该场比赛下另建任务。
+      </span>
+    </div>
+  {% endif %}
 
-      <div class="card shadow-sm">
-        <div class="card-body p-4">
-          <h1 class="h5 fw-semibold mb-3">{{ page_title }}</h1>
-
-          {% if form.non_field_errors %}
-            <div class="alert alert-danger" role="alert">
-              {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-            </div>
-          {% endif %}
-
-          <form method="post" novalidate>
-            {% csrf_token %}
-
-            <h2 class="h6 fw-semibold mb-2">基本信息</h2>
-
-            <div class="mb-3">
-              <label for="{{ form.name.id_for_label }}" class="form-label">
-                模板名称 <span class="text-danger">*</span>
-              </label>
-              {{ form.name }}
-              {% for error in form.name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-            </div>
-
-            <div class="mb-3">
-              <label for="{{ form.work_type.id_for_label }}" class="form-label">
-                工作类型 <span class="text-danger">*</span>
-              </label>
-              {{ form.work_type }}
-              <div class="form-text">只列出启用中的工作类型。</div>
-              {% for error in form.work_type.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-            </div>
-
-            <div class="mb-4">
-              <label for="{{ form.description.id_for_label }}" class="form-label">任务说明</label>
-              {{ form.description }}
-              {% for error in form.description.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-            </div>
-
-            <hr>
-            <h2 class="h6 fw-semibold mb-1">材料要求</h2>
-            <p class="small text-body-secondary">
-              勾选「允许」表示干事可以提交这类材料，勾选「必填」表示必须提交。
-              <strong>必填必然意味着允许</strong>，否则保存时会被拒绝。
-            </p>
-
-            <div class="table-responsive mb-4">
-              <table class="table align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th scope="col">材料类型</th>
-                    <th scope="col" class="text-center">允许提交</th>
-                    <th scope="col" class="text-center">要求必填</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>文字说明</td>
-                    <td class="text-center">{{ form.allow_text }}</td>
-                    <td class="text-center">{{ form.require_text }}</td>
-                  </tr>
-                  <tr>
-                    <td>图片证明</td>
-                    <td class="text-center">{{ form.allow_image }}</td>
-                    <td class="text-center">{{ form.require_image }}</td>
-                  </tr>
-                  <tr>
-                    <td>文件附件</td>
-                    <td class="text-center">{{ form.allow_file }}</td>
-                    <td class="text-center">{{ form.require_file }}</td>
-                  </tr>
-                  <tr>
-                    <td>作品链接</td>
-                    <td class="text-center">{{ form.allow_link }}</td>
-                    <td class="text-center">{{ form.require_link }}</td>
-                  </tr>
-                  <tr>
-                    <td>视频</td>
-                    <td class="text-center">{{ form.allow_video }}</td>
-                    <td class="text-center">{{ form.require_video }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {# 材料字段的错误统一显示在这里（例如"必填必须同时允许"） #}
-            {% for field in form %}
-              {% if field.name|slice:":6" == "allow_" or field.name|slice:":8" == "require_" %}
-                {% for error in field.errors %}
-                  <div class="alert alert-danger py-2 small mb-3">
-                    {{ field.label }}：{{ error }}
-                  </div>
-                {% endfor %}
-              {% endif %}
-            {% endfor %}
-
-            <div class="mb-4">
-              <label for="{{ form.max_records_per_member.id_for_label }}" class="form-label">
-                每名干事允许创建的工作记录数量 <span class="text-danger">*</span>
-              </label>
-              {{ form.max_records_per_member }}
-              <div class="form-text">正整数，默认 1，可按需要调整。</div>
-              {% for error in form.max_records_per_member.errors %}
-                <div class="text-danger small mt-1">{{ error }}</div>
-              {% endfor %}
-            </div>
-
-            <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary">
-                {% if is_create %}创建模板{% else %}保存修改{% endif %}
-              </button>
-              <a class="btn btn-outline-secondary" href="{% url 'tasks_admin:template_list' %}">取消</a>
-            </div>
-          </form>
-        </div>
-      </div>
-
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">{{ page_title }}</h1>
+      <p class="pp-page-header__desc">
+        模板定义「一类工作要交什么材料」。在比赛中添加任务时从这里选。
+      </p>
     </div>
   </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger" role="alert">
+      <span>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</span>
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {# ---------- 基本信息 ---------- #}
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">基本信息</h2>
+      </div>
+      <div class="pp-surface__body">
+
+        <div class="mb-3">
+          <label for="{{ form.name.id_for_label }}" class="form-label">
+            模板名称 <span class="pp-required">*</span>
+          </label>
+          {{ form.name }}
+          {% for error in form.name.errors %}<div class="pp-field-error">{{ error }}</div>{% endfor %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.work_type.id_for_label }}" class="form-label">
+            工作类型 <span class="pp-required">*</span>
+          </label>
+          {{ form.work_type }}
+          <div class="form-text">只列出启用中的工作类型。</div>
+          {% for error in form.work_type.errors %}<div class="pp-field-error">{{ error }}</div>{% endfor %}
+        </div>
+
+        <div class="mb-0">
+          <label for="{{ form.description.id_for_label }}" class="form-label">任务说明</label>
+          {{ form.description }}
+          {% for error in form.description.errors %}<div class="pp-field-error">{{ error }}</div>{% endfor %}
+        </div>
+
+      </div>
+    </div>
+
+    {# ---------- 材料要求 ---------- #}
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">材料要求</h2>
+      </div>
+      <div class="pp-surface__body">
+        <p class="pp-meta mb-3">
+          勾选「允许」表示干事可以提交这类材料，勾选「必填」表示必须提交。
+          <strong>必填必然意味着允许</strong>，否则保存时会被拒绝。
+        </p>
+
+        {#
+          每个复选框都用 <label> 明确关联（视觉上保持表格，语义上可被读屏识别）——
+          原实现只有列标题、没有逐项标签，屏幕阅读器无法分辨"这个框是哪类材料的哪一项"。
+        #}
+        <div class="table-responsive">
+          <table class="table pp-table-stack align-middle">
+            <thead>
+              <tr>
+                <th scope="col">材料类型</th>
+                <th scope="col" class="text-center">允许提交</th>
+                <th scope="col" class="text-center">要求必填</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="pp-cell-primary">文字说明</td>
+                <td class="text-center" data-label="允许提交">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.allow_text.name }}"
+                           id="{{ form.allow_text.id_for_label }}"
+                           aria-label="允许提交文字说明"
+                           {% if form.allow_text.value %}checked{% endif %}>
+                  </label>
+                </td>
+                <td class="text-center" data-label="要求必填">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.require_text.name }}"
+                           id="{{ form.require_text.id_for_label }}"
+                           aria-label="要求必填文字说明"
+                           {% if form.require_text.value %}checked{% endif %}>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td class="pp-cell-primary">图片证明</td>
+                <td class="text-center" data-label="允许提交">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.allow_image.name }}"
+                           id="{{ form.allow_image.id_for_label }}"
+                           aria-label="允许提交图片证明"
+                           {% if form.allow_image.value %}checked{% endif %}>
+                  </label>
+                </td>
+                <td class="text-center" data-label="要求必填">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.require_image.name }}"
+                           id="{{ form.require_image.id_for_label }}"
+                           aria-label="要求必填图片证明"
+                           {% if form.require_image.value %}checked{% endif %}>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td class="pp-cell-primary">文件附件</td>
+                <td class="text-center" data-label="允许提交">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.allow_file.name }}"
+                           id="{{ form.allow_file.id_for_label }}"
+                           aria-label="允许提交文件附件"
+                           {% if form.allow_file.value %}checked{% endif %}>
+                  </label>
+                </td>
+                <td class="text-center" data-label="要求必填">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.require_file.name }}"
+                           id="{{ form.require_file.id_for_label }}"
+                           aria-label="要求必填文件附件"
+                           {% if form.require_file.value %}checked{% endif %}>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td class="pp-cell-primary">作品链接</td>
+                <td class="text-center" data-label="允许提交">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.allow_link.name }}"
+                           id="{{ form.allow_link.id_for_label }}"
+                           aria-label="允许提交作品链接"
+                           {% if form.allow_link.value %}checked{% endif %}>
+                  </label>
+                </td>
+                <td class="text-center" data-label="要求必填">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.require_link.name }}"
+                           id="{{ form.require_link.id_for_label }}"
+                           aria-label="要求必填作品链接"
+                           {% if form.require_link.value %}checked{% endif %}>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td class="pp-cell-primary">视频</td>
+                <td class="text-center" data-label="允许提交">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.allow_video.name }}"
+                           id="{{ form.allow_video.id_for_label }}"
+                           aria-label="允许提交视频"
+                           {% if form.allow_video.value %}checked{% endif %}>
+                  </label>
+                </td>
+                <td class="text-center" data-label="要求必填">
+                  <label class="pp-check-wrap">
+                    <input type="checkbox" class="form-check-input" name="{{ form.require_video.name }}"
+                           id="{{ form.require_video.id_for_label }}"
+                           aria-label="要求必填视频"
+                           {% if form.require_video.value %}checked{% endif %}>
+                  </label>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {# 材料字段的错误统一显示在这里（例如"必填必须同时允许"） #}
+        {% for field in form %}
+          {% if field.name|slice:":6" == "allow_" or field.name|slice:":8" == "require_" %}
+            {% for error in field.errors %}
+              <div class="alert alert-danger mt-3 mb-0" role="alert">
+                <span>{{ field.label }}：{{ error }}</span>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+
+      </div>
+    </div>
+
+    {# ---------- 份数 ---------- #}
+    <div class="pp-surface">
+      <div class="pp-surface__body">
+        <label for="{{ form.max_records_per_member.id_for_label }}" class="form-label">
+          每名干事允许创建的工作记录数量 <span class="pp-required">*</span>
+        </label>
+        {{ form.max_records_per_member }}
+        <div class="form-text">正整数，默认 1，可按需要调整。</div>
+        {% for error in form.max_records_per_member.errors %}
+          <div class="pp-field-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="pp-form-actions" style="border-top: 0; padding-top: 0; margin-top: 0;">
+      <button type="submit" class="btn btn-primary">
+        {% if is_create %}创建模板{% else %}保存修改{% endif %}
+      </button>
+      <a class="btn btn-outline-secondary" href="{% url 'tasks_admin:template_list' %}">取消</a>
+    </div>
+  </form>
+
 </div>
 {% endblock %}

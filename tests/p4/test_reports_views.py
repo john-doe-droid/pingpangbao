@@ -98,9 +98,12 @@ class TestPageExportConsistency:
         client = report_client.as_(report_admin)
 
         html = client.get(reverse("reports:page")).content.decode()
+        # UI 改版后统计卡片的 class 变了（pp-stat__num 取代 fs-4 fw-semibold）。
+        # 这里不再依赖具体 class 串，而是按"数字 + 紧随其后的标签"这一结构匹配，
+        # 断言强度不变（仍然必须从页面真实读到"工作记录"这一项的数字）。
         m = re.search(
-            r'<div class="fs-4 fw-semibold">(\d+)</div>\s*'
-            r'<div class="small text-body-secondary">工作记录</div>', html)
+            r'>\s*(\d+)\s*<[^>]*>\s*'
+            r'(?:<[^>]*>\s*)*工作记录\s*<', html)
         assert m, "页面上应能读到记录数"
         page_total = int(m.group(1))
 

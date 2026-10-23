@@ -3,11 +3,11 @@
 {% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container pp-container">
 
-  <nav aria-label="面包屑" class="mb-2">
-    <ol class="breadcrumb small mb-0">
-      <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛管理</a></li>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛</a></li>
       <li class="breadcrumb-item">
         <a href="{% url 'competitions:detail' competition.pk %}">{{ competition.name }}</a>
       </li>
@@ -15,128 +15,161 @@
     </ol>
   </nav>
 
-  {# ---------- 任务信息 ---------- #}
-  <div class="card shadow-sm mb-3">
-    <div class="card-body p-4">
-      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-        <div style="min-width: 0;">
-          <h1 class="h5 fw-semibold mb-1 text-break">{{ task.name }}</h1>
-          <p class="small text-body-secondary mb-0">
-            <span class="badge text-bg-light border">{{ task.work_type.name }}</span>
-            来源模板：{{ task.template.name }}
-          </p>
-        </div>
-        {% if can_assign %}
-          <a class="btn btn-sm btn-outline-secondary"
-             href="{% url 'tasks_admin:task_update' task.pk %}">修改任务</a>
-        {% endif %}
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">{{ task.name }}</h1>
+      <p class="pp-page-header__desc">
+        {{ task.work_type.name }} · 来源模板 {{ task.template.name }}
+      </p>
+    </div>
+    {% if can_assign %}
+      <div class="pp-page-header__actions">
+        <a class="btn btn-outline-secondary"
+           href="{% url 'tasks_admin:task_update' task.pk %}">修改任务</a>
       </div>
+    {% endif %}
+  </div>
 
-      <dl class="row small mb-0">
-        <dt class="col-5 col-sm-3 col-lg-2 fw-normal text-body-secondary">生效截止</dt>
-        <dd class="col-7 col-sm-9 col-lg-10 mb-1">
-          {{ task.effective_deadline|date:"Y-m-d H:i" }}
-          <span class="text-body-secondary">（{{ task.deadline_source }}）</span>
-          {% if task.is_overdue %}
-            <span class="badge text-bg-danger ms-1">已逾期</span>
-          {% endif %}
-        </dd>
-
-        <dt class="col-5 col-sm-3 col-lg-2 fw-normal text-body-secondary">每人份数</dt>
-        <dd class="col-7 col-sm-9 col-lg-10 mb-1">{{ task.max_records_per_member }} 份</dd>
-
-        <dt class="col-5 col-sm-3 col-lg-2 fw-normal text-body-secondary">生效材料要求</dt>
-        <dd class="col-7 col-sm-9 col-lg-10 mb-1">
-          {% for label, allow, require in material_rows %}
-            <span class="badge {% if require %}text-bg-primary{% else %}text-bg-light border{% endif %} me-1">
-              {{ label }}{% if require %}（必填）{% else %}（选填）{% endif %}
-            </span>
-          {% empty %}
-            <span class="text-body-secondary">无需提交材料</span>
-          {% endfor %}
-          <div class="form-text mb-0">
-            以上是创建任务时冻结的规则快照，不随模板后续修改而变化。
-          </div>
-        </dd>
-
+  {# ---------- 任务规则 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">任务规则</h2>
+      {% if task.is_overdue %}
+        <span class="pp-status pp-status--danger">
+          <span class="pp-status__mark" aria-hidden="true"></span>已逾期</span>
+      {% endif %}
+    </div>
+    <div class="pp-surface__body">
+      <dl class="pp-dl">
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">生效截止</dt>
+          <dd class="pp-dl__value">
+            {{ task.effective_deadline|date:"Y-m-d H:i" }}
+            <span class="pp-meta">（{{ task.deadline_source }}）</span>
+          </dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">每人份数</dt>
+          <dd class="pp-dl__value">{{ task.max_records_per_member }} 份</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">材料要求</dt>
+          <dd class="pp-dl__value">
+            {% for label, allow, require in material_rows %}
+              <span class="pp-status {% if require %}pp-status--info{% else %}pp-status--neutral{% endif %}"
+                    style="margin-right: var(--pp-space-1);">
+                {{ label }}{% if require %} · 必填{% else %} · 选填{% endif %}
+              </span>
+            {% empty %}
+              <span class="pp-meta">无需提交材料</span>
+            {% endfor %}
+            <div class="pp-micro" style="margin-top: var(--pp-space-2);">
+              以上是创建任务时冻结的规则快照，不随模板后续修改而变化。
+            </div>
+          </dd>
+        </div>
         {% if task.description %}
-          <dt class="col-12 fw-normal text-body-secondary mt-2">任务说明</dt>
-          <dd class="col-12 mb-0">{{ task.description|linebreaksbr }}</dd>
+          <div class="pp-dl__row">
+            <dt class="pp-dl__label">任务说明</dt>
+            <dd class="pp-dl__value">{{ task.description|linebreaksbr }}</dd>
+          </div>
         {% endif %}
       </dl>
     </div>
   </div>
 
-  {# ---------- 人员分配 ---------- #}
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <h2 class="h6 fw-semibold mb-3">已分配干事（{{ assignments|length }}）</h2>
+  {# ---------- 已分配干事 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">已分配干事</h2>
+      <span class="pp-meta">{{ assignments|length }} 人</span>
+    </div>
 
-      {% if assignments %}
-        <div class="table-responsive mb-3">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+    {% if assignments %}
+      <div class="pp-surface__body pp-surface__body--flush">
+        <div class="table-responsive">
+          <table class="table pp-table-stack align-middle">
+            <caption class="visually-hidden">已分配干事，共 {{ assignments|length }} 人</caption>
+            <thead>
               <tr>
                 <th scope="col">姓名</th>
                 <th scope="col" class="d-none d-sm-table-cell">学号</th>
                 <th scope="col" class="d-none d-md-table-cell">分配时间</th>
-                <th scope="col" class="text-end">操作</th>
+                {% if can_assign %}<th scope="col" class="pp-num">操作</th>{% endif %}
               </tr>
             </thead>
             <tbody>
               {% for assignment in assignments %}
                 <tr>
-                  <td class="fw-semibold">{{ assignment.member.real_name }}</td>
-                  <td class="d-none d-sm-table-cell text-body-secondary">
+                  <td class="pp-cell-lead pp-cell-primary" data-label="姓名">
+                    {{ assignment.member.real_name }}
+                  </td>
+                  <td class="d-none d-sm-table-cell" data-label="学号">
                     {{ assignment.member.student_id }}
                   </td>
-                  <td class="d-none d-md-table-cell text-body-secondary small">
+                  <td class="d-none d-md-table-cell pp-cell-sub" data-label="分配时间">
                     {{ assignment.assigned_at|date:"Y-m-d H:i" }}
                   </td>
-                  <td class="text-end">
-                    {% if can_assign %}
-                      <form method="post" class="d-inline"
-                            action="{% url 'tasks_admin:assignment_deactivate' assignment.pk %}">
+                  {% if can_assign %}
+                    <td class="pp-num pp-cell-actions" data-label="操作">
+                      <form method="post"
+                            action="{% url 'tasks_admin:assignment_deactivate' assignment.pk %}"
+                            class="m-0">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline-danger">取消分配</button>
                       </form>
-                    {% endif %}
-                  </td>
+                    </td>
+                  {% endif %}
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        <p class="small text-body-secondary mb-0">
-          取消分配不会删除记录，历史分配信息会保留，便于事后追溯。
-        </p>
-      {% else %}
-        <p class="text-body-secondary small mb-3">该任务还没有分配给任何人。</p>
-      {% endif %}
+      </div>
+      <div class="pp-surface__footer">
+        取消分配不会删除记录，历史分配信息会保留，便于事后追溯。
+      </div>
+    {% else %}
+      <div class="pp-empty" style="padding: var(--pp-space-6) var(--pp-space-4);">
+        <p class="pp-empty__title">该任务还没有分配给任何人</p>
+        <p class="pp-empty__desc">未分配的干事看不到这个任务，也无法提交成果。</p>
+      </div>
+    {% endif %}
+  </div>
 
-      {% if can_assign %}
-        <hr>
-        <h3 class="h6 fw-semibold mb-2">分配干事</h3>
+  {# ---------- 分配干事 ---------- #}
+  {% if can_assign %}
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">分配干事</h2>
+      </div>
+      <div class="pp-surface__body">
         <form method="post" action="{% url 'tasks_admin:task_assign' task.pk %}" novalidate>
           {% csrf_token %}
-          <div class="mb-2">
+          <div class="mb-3">
+            <label for="{{ assignment_form.members.id_for_label }}" class="form-label">
+              {{ assignment_form.members.label }}
+            </label>
             {{ assignment_form.members }}
             {% if assignment_form.members.help_text %}
               <div class="form-text">{{ assignment_form.members.help_text }}</div>
             {% endif %}
+            {% for error in assignment_form.members.errors %}
+              <div class="pp-field-error">{{ error }}</div>
+            {% endfor %}
           </div>
           <button type="submit" class="btn btn-primary">确认分配</button>
         </form>
-        <p class="small text-body-secondary mt-2 mb-0">
+        <p class="pp-meta" style="margin-top: var(--pp-space-3); margin-bottom: 0;">
           列表只显示启用中、且拥有「干事」角色、且尚未被分配到本任务的账号。
         </p>
-      {% elif competition.is_archived %}
-        <div class="alert alert-secondary small mt-3 mb-0">
-          比赛已归档，不能再调整人员分配。
-        </div>
-      {% endif %}
+      </div>
     </div>
-  </div>
+  {% elif competition.is_archived %}
+    <div class="alert alert-secondary" role="alert">
+      <span>比赛已归档，不能再调整人员分配。</span>
+    </div>
+  {% endif %}
 
 </div>
 {% endblock %}

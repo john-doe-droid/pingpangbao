@@ -3,85 +3,65 @@
 {% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-lg-8 col-xl-7">
+<div class="container pp-container pp-container--form">
 
-      <nav aria-label="面包屑" class="mb-2">
-        <ol class="breadcrumb small mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛管理</a></li>
-          <li class="breadcrumb-item">
-            <a href="{% url 'competitions:detail' competition.pk %}">{{ competition.name }}</a>
-          </li>
-          <li class="breadcrumb-item active" aria-current="page">新建任务</li>
-        </ol>
-      </nav>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛</a></li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'competitions:detail' competition.pk %}">{{ competition.name }}</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">新建任务</li>
+    </ol>
+  </nav>
 
-      <div class="card shadow-sm">
-        <div class="card-body p-4">
-          <h1 class="h5 fw-semibold mb-1">{{ page_title }}</h1>
-          <p class="small text-body-secondary mb-4">
-            任务的材料要求在创建时从模板<strong>冻结为快照</strong>，
-            之后模板被修改不会影响本任务。
-          </p>
-
-          {% if form.non_field_errors %}
-            <div class="alert alert-danger" role="alert">
-              {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-            </div>
-          {% endif %}
-
-          <form method="post" novalidate>
-            {% csrf_token %}
-
-            <div class="mb-3">
-              <label for="{{ form.template.id_for_label }}" class="form-label">
-                任务模板 <span class="text-danger">*</span>
-              </label>
-              {{ form.template }}
-              <div class="form-text">
-                只列出启用中、且本场比赛尚未使用过的模板。
-              </div>
-              {% for error in form.template.errors %}
-                <div class="text-danger small mt-1">{{ error }}</div>
-              {% endfor %}
-            </div>
-
-            <div class="mb-3">
-              <label for="{{ form.name.id_for_label }}" class="form-label">
-                任务名称 <span class="text-danger">*</span>
-              </label>
-              {{ form.name }}
-              <div class="form-text">默认与模板同名，可按本场比赛需要调整。</div>
-              {% for error in form.name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-            </div>
-
-            <div class="mb-3">
-              <label for="{{ form.description.id_for_label }}" class="form-label">任务说明</label>
-              {{ form.description }}
-              {% for error in form.description.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-            </div>
-
-            <div class="mb-4">
-              <label for="{{ form.deadline.id_for_label }}" class="form-label">任务独立截止时间</label>
-              {{ form.deadline }}
-              <div class="form-text">
-                留空则继承比赛的默认截止时间
-                （{{ competition.default_deadline|date:"Y-m-d H:i" }}）；填写后以本任务的为准。
-              </div>
-              {% for error in form.deadline.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-            </div>
-
-            <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary">创建任务</button>
-              <a class="btn btn-outline-secondary"
-                 href="{% url 'competitions:detail' competition.pk %}">取消</a>
-            </div>
-          </form>
-        </div>
-      </div>
-
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">{{ page_title }}</h1>
+      <p class="pp-page-header__desc">
+        任务从模板创建，并<strong>冻结当时的材料要求</strong>。
+        模板日后被修改不会影响这个任务。
+      </p>
     </div>
   </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger" role="alert">
+      <span>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</span>
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">任务信息</h2>
+      </div>
+      <div class="pp-surface__body">
+        {% for field in form %}
+          <div class="mb-3{% if forloop.last %} mb-0{% endif %}">
+            <label for="{{ field.id_for_label }}" class="form-label">
+              {{ field.label }}{% if field.field.required %} <span class="pp-required">*</span>{% endif %}
+            </label>
+            {{ field }}
+            {% if field.help_text %}
+              <div class="form-text">{{ field.help_text }}</div>
+            {% endif %}
+            {% for error in field.errors %}
+              <div class="pp-field-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="pp-form-actions" style="border-top: 0; padding-top: 0; margin-top: 0;">
+      <button type="submit" class="btn btn-primary">创建任务</button>
+      <a class="btn btn-outline-secondary"
+         href="{% url 'competitions:detail' competition.pk %}">取消</a>
+    </div>
+  </form>
+
 </div>
 {% endblock %}

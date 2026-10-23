@@ -3,62 +3,89 @@
 {% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-lg-8 col-xl-7">
+<div class="container pp-container pp-container--form">
 
-      <nav aria-label="面包屑" class="mb-2">
-        <ol class="breadcrumb small mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛管理</a></li>
-          <li class="breadcrumb-item">
-            <a href="{% url 'competitions:detail' competition.pk %}">{{ competition.name }}</a>
-          </li>
-          <li class="breadcrumb-item active" aria-current="page">修改任务</li>
-        </ol>
-      </nav>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛</a></li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'competitions:detail' competition.pk %}">{{ competition.name }}</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">修改任务</li>
+    </ol>
+  </nav>
 
-      <div class="alert alert-warning small" role="alert">
-        这里<strong>不能修改材料要求</strong>。材料规则在任务创建时就已冻结，
-        改动它会让已经领取任务的干事要求悄悄变化。
-        如需调整规则，请停用本任务并用新模板另建一个。
-      </div>
-
-      <div class="card shadow-sm">
-        <div class="card-body p-4">
-          <h1 class="h5 fw-semibold mb-3">{{ page_title }}</h1>
-
-          <dl class="row small mb-4">
-            <dt class="col-4 col-sm-3 fw-normal text-body-secondary">来源模板</dt>
-            <dd class="col-8 col-sm-9">{{ task.template.name }}</dd>
-            <dt class="col-4 col-sm-3 fw-normal text-body-secondary">工作类型</dt>
-            <dd class="col-8 col-sm-9">{{ task.work_type.name }}</dd>
-            <dt class="col-4 col-sm-3 fw-normal text-body-secondary">生效材料要求</dt>
-            <dd class="col-8 col-sm-9 mb-0">{{ task.snapshot_summary }}</dd>
-          </dl>
-
-          <form method="post" novalidate>
-            {% csrf_token %}
-            {% for field in form %}
-              <div class="mb-3">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                {% for error in field.errors %}
-                  <div class="text-danger small mt-1">{{ error }}</div>
-                {% endfor %}
-              </div>
-            {% endfor %}
-
-            <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary">保存修改</button>
-              <a class="btn btn-outline-secondary"
-                 href="{% url 'tasks_admin:task_detail' task.pk %}">取消</a>
-            </div>
-          </form>
-        </div>
-      </div>
-
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">{{ page_title }}</h1>
     </div>
   </div>
+
+  <div class="alert alert-warning" role="alert">
+    <span>
+      这里<strong>不能修改材料要求</strong>。材料规则在任务创建时就已冻结，
+      改动它会让已经领取任务的干事要求悄悄变化。
+      如需调整规则，请停用本任务并用新模板另建一个。
+    </span>
+  </div>
+
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">当前任务规则</h2>
+    </div>
+    <div class="pp-surface__body">
+      <dl class="pp-dl">
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">来源模板</dt>
+          <dd class="pp-dl__value">{{ task.template.name }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">工作类型</dt>
+          <dd class="pp-dl__value">{{ task.work_type.name }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">材料要求</dt>
+          <dd class="pp-dl__value">{{ task.snapshot_summary }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger" role="alert">
+      <span>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</span>
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">可修改项</h2>
+      </div>
+      <div class="pp-surface__body">
+        {% for field in form %}
+          <div class="mb-3{% if forloop.last %} mb-0{% endif %}">
+            <label for="{{ field.id_for_label }}" class="form-label">
+              {{ field.label }}{% if field.field.required %} <span class="pp-required">*</span>{% endif %}
+            </label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}
+              <div class="pp-field-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="pp-form-actions" style="border-top: 0; padding-top: 0; margin-top: 0;">
+      <button type="submit" class="btn btn-primary">保存修改</button>
+      <a class="btn btn-outline-secondary"
+         href="{% url 'tasks_admin:task_detail' task.pk %}">取消</a>
+    </div>
+  </form>
+
 </div>
 {% endblock %}

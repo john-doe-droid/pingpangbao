@@ -3,110 +3,140 @@
 {% block title %}{{ task.name }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-lg-8 col-xl-7">
+<div class="container pp-container pp-container--narrow">
 
-      <nav aria-label="面包屑" class="mb-2">
-        <ol class="breadcrumb small mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'tasks:my_tasks' %}">我的任务</a></li>
-          <li class="breadcrumb-item active" aria-current="page">{{ task.name }}</li>
-        </ol>
-      </nav>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'tasks:my_tasks' %}">我的任务</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ task.name }}</li>
+    </ol>
+  </nav>
 
-      {% if is_admin_view %}
-        <div class="alert alert-info small" role="alert">
-          您以管理员身份查看该任务详情，它<strong>并未分配给您本人</strong>。
+  {% if is_admin_view %}
+    <div class="alert alert-info" role="alert">
+      <span>
+        你以管理员身份查看该任务详情，它<strong>并未分配给你本人</strong>，
+        因此这里的「提交成果」入口不可用。
+      </span>
+    </div>
+  {% endif %}
+
+  {# ---------- 任务概要 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__body">
+      <div class="pp-page-header" style="margin-bottom: var(--pp-space-4);">
+        <div class="pp-page-header__main">
+          <h1 class="pp-page-title" style="font-size: 18px;">{{ task.name }}</h1>
+          <p class="pp-page-header__desc">
+            {{ competition.name }} · {{ task.work_type.name }}
+          </p>
         </div>
-      {% endif %}
-
-      <div class="card shadow-sm mb-3">
-        <div class="card-body p-4">
-          <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-            <h1 class="h5 fw-semibold mb-0 text-break">{{ task.name }}</h1>
-            {% if is_overdue %}
-              <span class="badge text-bg-danger">已逾期</span>
-            {% else %}
-              <span class="badge text-bg-success">进行中</span>
-            {% endif %}
-          </div>
-
-          <dl class="row small mb-0">
-            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">比赛名称</dt>
-            <dd class="col-7 col-sm-8 col-lg-9 mb-1">{{ competition.name }}</dd>
-
-            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">工作类型</dt>
-            <dd class="col-7 col-sm-8 col-lg-9 mb-1">{{ task.work_type.name }}</dd>
-
-            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">比赛日期</dt>
-            <dd class="col-7 col-sm-8 col-lg-9 mb-1">{{ competition.event_date|date:"Y-m-d" }}</dd>
-
-            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">截止时间</dt>
-            <dd class="col-7 col-sm-8 col-lg-9 mb-1">
-              {{ effective_deadline|date:"Y-m-d H:i" }}
-              <span class="text-body-secondary">（{{ task.deadline_source }}）</span>
-            </dd>
-
-            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">比赛状态</dt>
-            <dd class="col-7 col-sm-8 col-lg-9 mb-1">
-              {% if competition.status == 'active' %}进行中
-              {% elif competition.status == 'archived' %}已归档（停止接收新提交）
-              {% else %}草稿{% endif %}
-            </dd>
-
-            <dt class="col-5 col-sm-4 col-lg-3 fw-normal text-body-secondary">允许提交份数</dt>
-            <dd class="col-7 col-sm-8 col-lg-9 mb-1">{{ task.max_records_per_member }} 份</dd>
-
-            {% if task.description %}
-              <dt class="col-12 fw-normal text-body-secondary mt-2">任务说明</dt>
-              <dd class="col-12 mb-0">{{ task.description|linebreaksbr }}</dd>
-            {% endif %}
-          </dl>
-        </div>
-      </div>
-
-      {# ---------- 需要提交的材料 ---------- #}
-      <div class="card shadow-sm mb-3">
-        <div class="card-body">
-          <h2 class="h6 fw-semibold mb-3">需要提交的材料</h2>
-          {% if material_rows %}
-            <ul class="list-unstyled mb-0">
-              {% for label, allow, require in material_rows %}
-                <li class="d-flex justify-content-between align-items-center border-bottom py-2">
-                  <span>{{ label }}</span>
-                  {% if require %}
-                    <span class="badge text-bg-primary">必填</span>
-                  {% else %}
-                    <span class="badge text-bg-light border">选填</span>
-                  {% endif %}
-                </li>
-              {% endfor %}
-            </ul>
+        <div class="pp-page-header__actions">
+          {% if is_overdue %}
+            <span class="pp-status pp-status--danger">
+              <span class="pp-status__mark" aria-hidden="true"></span>已逾期</span>
           {% else %}
-            <p class="text-body-secondary small mb-0">该任务无需提交材料。</p>
+            <span class="pp-status pp-status--success">
+              <span class="pp-status__mark" aria-hidden="true"></span>进行中</span>
           {% endif %}
         </div>
       </div>
 
-      {# ---------- 提交功能占位（本阶段刻意不提供可点的提交按钮） ---------- #}
-      <div class="card shadow-sm border-secondary-subtle">
-        <div class="card-body">
-          <h2 class="h6 fw-semibold mb-2">提交工作成果</h2>
-          <div class="alert alert-secondary mb-0" role="alert">
-            <strong>提交功能将在后续阶段开放。</strong>
-            <p class="small mb-0 mt-1">
-              比赛、任务与人员分配已可用；成果提交、附件上传与审核流程属于下一阶段的内容。
-              本页暂不提供提交入口，避免出现「点了按钮却没有保存」的情况。
-            </p>
-          </div>
+      <dl class="pp-dl">
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">比赛名称</dt>
+          <dd class="pp-dl__value">{{ competition.name }}</dd>
         </div>
-      </div>
-
-      <div class="mt-3">
-        <a class="btn btn-outline-secondary" href="{% url 'tasks:my_tasks' %}">返回我的任务</a>
-      </div>
-
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">工作类型</dt>
+          <dd class="pp-dl__value">{{ task.work_type.name }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">比赛日期</dt>
+          <dd class="pp-dl__value">{{ competition.event_date|date:"Y-m-d" }}</dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">截止时间</dt>
+          <dd class="pp-dl__value">
+            {{ effective_deadline|date:"Y-m-d H:i" }}
+            <span class="pp-meta">（{{ task.deadline_source }}）</span>
+          </dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">比赛状态</dt>
+          <dd class="pp-dl__value">
+            {% if competition.status == 'active' %}进行中
+            {% elif competition.status == 'archived' %}已归档（停止接收新提交）
+            {% else %}草稿{% endif %}
+          </dd>
+        </div>
+        <div class="pp-dl__row">
+          <dt class="pp-dl__label">允许提交份数</dt>
+          <dd class="pp-dl__value">{{ task.max_records_per_member }} 份</dd>
+        </div>
+        {% if task.description %}
+          <div class="pp-dl__row">
+            <dt class="pp-dl__label">任务说明</dt>
+            <dd class="pp-dl__value">{{ task.description|linebreaksbr }}</dd>
+          </div>
+        {% endif %}
+      </dl>
     </div>
   </div>
+
+  {# ---------- 需要提交的材料 ---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">需要提交的材料</h2>
+    </div>
+    {% if material_rows %}
+      <ul class="pp-list">
+        {% for label, allow, require in material_rows %}
+          <li class="pp-list__item pp-list__item--split">
+            <span class="pp-list__main">
+              <span class="pp-list__name">{{ label }}</span>
+            </span>
+            {% if require %}
+              <span class="pp-status pp-status--info">
+                <span class="pp-status__mark" aria-hidden="true"></span>必填</span>
+            {% else %}
+              <span class="pp-status pp-status--neutral">
+                <span class="pp-status__mark" aria-hidden="true"></span>选填</span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="pp-empty" style="padding: var(--pp-space-6) var(--pp-space-4);">
+        <p class="pp-empty__title">该任务无需提交材料</p>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ---------- 提交入口 ----------
+     提交功能位于「我的工作记录」：那里按任务列出剩余额度与提交按钮，
+     避免同一动作在两个地方各有一个入口、状态却可能不一致。 #}
+  <div class="pp-surface">
+    <div class="pp-surface__body">
+      <h2 class="pp-section-title" style="margin-bottom: var(--pp-space-2);">提交工作成果</h2>
+      {% if is_admin_view %}
+        <p class="pp-meta mb-0">
+          该任务未分配给你本人，无法提交。若需要代为处理，请调整人员分配。
+        </p>
+      {% else %}
+        <p class="pp-meta">
+          提交入口在「我的工作记录」页，那里会显示每个任务已提交的份数与剩余额度。
+        </p>
+        <a class="btn btn-primary" href="{% url 'submissions:my_submissions' %}">
+          前往我的工作记录
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="pp-inline-actions">
+    <a class="btn btn-outline-secondary" href="{% url 'tasks:my_tasks' %}">返回我的任务</a>
+  </div>
+
 </div>
 {% endblock %}

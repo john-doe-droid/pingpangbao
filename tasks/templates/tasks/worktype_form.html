@@ -3,49 +3,56 @@
 {% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-12 col-lg-7 col-xl-6">
+<div class="container pp-container pp-container--form">
 
-      <nav aria-label="面包屑" class="mb-2">
-        <ol class="breadcrumb small mb-0">
-          <li class="breadcrumb-item"><a href="{% url 'tasks_admin:worktype_list' %}">工作类型</a></li>
-          <li class="breadcrumb-item active" aria-current="page">
-            {% if is_create %}新建{% else %}修改{% endif %}
-          </li>
-        </ol>
-      </nav>
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'tasks_admin:worktype_list' %}">工作类型</a></li>
+      <li class="breadcrumb-item active" aria-current="page">
+        {% if is_create %}新建{% else %}修改{% endif %}
+      </li>
+    </ol>
+  </nav>
 
-      <div class="card shadow-sm">
-        <div class="card-body p-4">
-          <h1 class="h5 fw-semibold mb-3">{{ page_title }}</h1>
-
-          <form method="post" novalidate>
-            {% csrf_token %}
-            {% for field in form %}
-              <div class="mb-3">
-                <label for="{{ field.id_for_label }}" class="form-label">
-                  {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
-                </label>
-                {{ field }}
-                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                {% for error in field.errors %}
-                  <div class="text-danger small mt-1">{{ error }}</div>
-                {% endfor %}
-              </div>
-            {% endfor %}
-
-            <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary">
-                {% if is_create %}创建工作类型{% else %}保存修改{% endif %}
-              </button>
-              <a class="btn btn-outline-secondary" href="{% url 'tasks_admin:worktype_list' %}">取消</a>
-            </div>
-          </form>
-        </div>
-      </div>
-
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">{{ page_title }}</h1>
     </div>
   </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger" role="alert">
+      <span>{% for error in form.non_field_errors %}{{ error }}{% endfor %}</span>
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="pp-surface">
+      <div class="pp-surface__body">
+        {% for field in form %}
+          <div class="mb-3{% if forloop.last %} mb-0{% endif %}">
+            <label for="{{ field.id_for_label }}" class="form-label">
+              {{ field.label }}{% if field.field.required %} <span class="pp-required">*</span>{% endif %}
+            </label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}
+              <div class="pp-field-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="pp-form-actions" style="border-top: 0; padding-top: 0; margin-top: 0;">
+      <button type="submit" class="btn btn-primary">
+        {% if is_create %}创建工作类型{% else %}保存修改{% endif %}
+      </button>
+      <a class="btn btn-outline-secondary" href="{% url 'tasks_admin:worktype_list' %}">取消</a>
+    </div>
+  </form>
+
 </div>
 {% endblock %}

@@ -3,87 +3,114 @@
 {% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container pp-container">
 
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <h1 class="h4 fw-semibold mb-0">工作记录管理</h1>
-    <a class="btn btn-outline-secondary" href="{% url 'tasks_admin:template_list' %}">任务模板</a>
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">工作记录管理</h1>
+      <p class="pp-page-header__desc">
+        查看全部成员的工作记录。审核历史在每条记录的详情页里。
+      </p>
+    </div>
+    <div class="pp-page-header__actions">
+      <a class="btn btn-outline-secondary"
+         href="{% url 'tasks_admin:template_list' %}">任务模板</a>
+    </div>
   </div>
 
   {% if orphan_count %}
-    <div class="alert alert-warning small" role="alert">
-      有 <strong>{{ orphan_count }}</strong> 个存储对象待清理（数据库写入失败后回删未成功）。
-      它们已记录在案，不会假装已清理；可用管理命令重试删除。
+    <div class="alert alert-warning" role="alert">
+      <span>
+        有 <strong>{{ orphan_count }}</strong> 个存储对象待清理（数据库写入失败后回删未成功）。
+        它们已记录在案，不会假装已清理；可用管理命令重试删除。
+      </span>
     </div>
   {% endif %}
 
-  {# 过滤：GET 请求，不做任何写操作 #}
-  <form method="get" class="row g-2 align-items-end mb-3">
-    <div class="col-12 col-sm-5 col-md-4">
-      <label for="competition" class="form-label small mb-1">比赛</label>
-      <select name="competition" id="competition" class="form-select form-select-sm">
-        <option value="">全部比赛</option>
-        {% for c in competitions %}
-          <option value="{{ c.pk }}" {% if current_competition == c.pk|stringformat:"s" %}selected{% endif %}>
-            {{ c.name }}
-          </option>
-        {% endfor %}
-      </select>
+  {# ---------- 筛选（GET，不做任何写操作）---------- #}
+  <div class="pp-surface">
+    <div class="pp-surface__body">
+      <form method="get" class="pp-filter-form">
+        <div class="pp-filter-form__item">
+          <label for="competition" class="form-label">比赛</label>
+          <select name="competition" id="competition" class="form-select form-select-sm">
+            <option value="">全部比赛</option>
+            {% for c in competitions %}
+              <option value="{{ c.pk }}" {% if current_competition == c.pk|stringformat:"s" %}selected{% endif %}>
+                {{ c.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="pp-filter-form__item">
+          <label for="status" class="form-label">状态</label>
+          <select name="status" id="status" class="form-select form-select-sm">
+            <option value="">全部状态</option>
+            {% for value, label in status_choices %}
+              <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="pp-filter-form__actions">
+          <button type="submit" class="btn btn-sm btn-primary">筛选</button>
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'submissions_admin:list' %}">清除</a>
+        </div>
+      </form>
     </div>
-    <div class="col-12 col-sm-4 col-md-3">
-      <label for="status" class="form-label small mb-1">状态</label>
-      <select name="status" id="status" class="form-select form-select-sm">
-        <option value="">全部状态</option>
-        {% for value, label in status_choices %}
-          <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-12 col-sm-3 col-md-2">
-      <button type="submit" class="btn btn-sm btn-primary w-100">筛选</button>
-    </div>
-  </form>
+  </div>
 
   {% if submissions %}
-    <div class="card shadow-sm">
-      <div class="card-body p-0">
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">记录</h2>
+        <span class="pp-meta">{{ submissions|length }} 条</span>
+      </div>
+      <div class="pp-surface__body pp-surface__body--flush">
         <div class="table-responsive">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+          <table class="table pp-table-stack align-middle">
+            <caption class="visually-hidden">工作记录列表</caption>
+            <thead>
               <tr>
                 <th scope="col">任务</th>
                 <th scope="col" class="d-none d-md-table-cell">比赛</th>
                 <th scope="col" class="d-none d-lg-table-cell">提交人</th>
-                <th scope="col">状态</th>
-                <th scope="col" class="text-end">操作</th>
+                <th scope="col" class="pp-num">状态</th>
+                <th scope="col" class="pp-num">版本</th>
+                <th scope="col" class="pp-num">操作</th>
               </tr>
             </thead>
             <tbody>
               {% for sub in submissions %}
                 <tr>
-                  <td>
-                    <span class="fw-semibold">{{ sub.task.name }}</span>
-                    <div class="small text-body-secondary">
-                      第 {{ sub.current_version.version_no|default:1 }} 版
-                      {% if sub.current_version.is_overdue %}
-                        <span class="badge text-bg-danger ms-1">逾期</span>
-                      {% endif %}
-                    </div>
+                  <td class="pp-cell-lead" data-label="任务">
+                    <span class="pp-cell-primary">{{ sub.task.name }}</span>
                   </td>
-                  <td class="d-none d-md-table-cell small text-body-secondary">{{ sub.competition.name }}</td>
-                  <td class="d-none d-lg-table-cell small">
+                  <td class="d-none d-md-table-cell pp-cell-sub" data-label="比赛">
+                    {{ sub.competition.name }}
+                  </td>
+                  <td class="d-none d-lg-table-cell" data-label="提交人">
                     {{ sub.assignment.member.real_name }}
                   </td>
-                  <td>
+                  <td class="pp-num" data-label="状态">
                     {% if sub.status == 'pending' %}
-                      <span class="badge text-bg-warning">待审核</span>
+                      <span class="pp-status pp-status--warning">
+                        <span class="pp-status__mark" aria-hidden="true"></span>待审核</span>
                     {% elif sub.status == 'needs_revision' %}
-                      <span class="badge text-bg-danger">退回修改</span>
+                      <span class="pp-status pp-status--danger">
+                        <span class="pp-status__mark" aria-hidden="true"></span>退回修改</span>
                     {% else %}
-                      <span class="badge text-bg-success">通过</span>
+                      <span class="pp-status pp-status--success">
+                        <span class="pp-status__mark" aria-hidden="true"></span>通过</span>
                     {% endif %}
                   </td>
-                  <td class="text-end">
+                  <td class="pp-num" data-label="版本">
+                    第 {{ sub.current_version.version_no|default:1 }} 版
+                    {% if sub.current_version.is_overdue %}
+                      <div><span class="pp-status pp-status--danger">
+                        <span class="pp-status__mark" aria-hidden="true"></span>逾期</span></div>
+                    {% endif %}
+                  </td>
+                  <td class="pp-num pp-cell-actions" data-label="操作">
                     <a class="btn btn-sm btn-outline-secondary"
                        href="{% url 'submissions:detail' sub.pk %}">查看</a>
                   </td>
@@ -93,14 +120,16 @@
           </table>
         </div>
       </div>
-      <div class="card-footer bg-white small text-body-secondary">
+      <div class="pp-surface__footer">
         最多显示最近 300 条。审核历史可在记录详情页查看。
       </div>
     </div>
   {% else %}
-    <div class="card shadow-sm">
-      <div class="card-body text-center py-5 text-body-secondary">
-        <p class="mb-0">没有符合条件的记录。</p>
+    <div class="pp-surface">
+      <div class="pp-empty">
+        <p class="pp-empty__title">没有符合条件的记录</p>
+        <p class="pp-empty__desc">换一个筛选条件看看，或清除筛选查看全部。</p>
+        <a class="btn btn-outline-secondary" href="{% url 'submissions_admin:list' %}">清除筛选</a>
       </div>
     </div>
   {% endif %}

@@ -1,110 +1,1640 @@
 /* ==========================================================================
-   乒乓球社工作统计 —— 站点自有样式
-   Bootstrap 已在前面加载；这里只放项目特有的少量调整。
-   ========================================================================== */
-
-:root {
-  --pp-brand: #0d6efd;
-}
-
-body {
-  /* 中文优先字体栈，保证在 Windows / 移动端都有合适字形 */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
-    "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif;
-}
-
-.navbar-brand {
-  letter-spacing: 0.5px;
-}
-
-/* 移动端：品牌名允许收缩并省略，避免把汉堡按钮挤到第二行。
-   min-width:0 是关键 —— flex 子项默认 min-width:auto 不会收缩。 */
-@media (max-width: 767.98px) {
-  .navbar-brand {
-    min-width: 0;
-    flex-shrink: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 1rem;
-    max-width: calc(100% - 60px);   /* 给右侧 toggler 留出空间 */
-  }
-}
-
-.card {
-  border: 1px solid rgba(0, 0, 0, 0.075);
-  border-radius: 0.75rem;
-}
-
-/* 表单控件圆角与聚焦反馈，保持与卡片一致 */
-.form-control {
-  border-radius: 0.5rem;
-}
-
-.form-control:focus {
-  border-color: var(--pp-brand);
-  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
-}
-
-/* 移动端：内容两侧留白更紧凑，避免按钮贴边 */
-@media (max-width: 576px) {
-  .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-  .display-6 {
-    font-size: 1.6rem;
-  }
-}
-
-/* ==========================================================================
-   移动端触控可达性
+   乒乓球社工作统计 —— 站点样式
    --------------------------------------------------------------------------
-   在窄屏上把按钮/链接的触控目标做到 ≥44px（Apple HIG 与 WCAG 2.5.8 的
-   建议下限），否则筛选按钮、"查看详情"这类小按钮很容易点偏。
-   只在窄屏生效，桌面端保持原有紧凑外观。
+   设计方向：Google Search 的克制 + Workspace 的信息组织 + Material 的交互规范。
+   要点：
+     · 颜色、间距、字号、圆角、阴影全部走 CSS 变量，模板里不再散落硬编码颜色
+     · 主色只用于"可操作"和"当前选中"，不用来装饰
+     · 阴影只用于真正需要表达层级的浮层，正文区域一律用 1px 边框分隔
+     · 状态不只用颜色区分，同时带文字（见 .pp-status）
+   Bootstrap 5.3.8 已在前加载；此文件在其后覆盖。
    ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. 设计令牌
+   -------------------------------------------------------------------------- */
+:root {
+  /* --- 颜色（规范指定值）--- */
+  --pp-bg: #F8F9FA;
+  --pp-surface: #FFFFFF;
+  --pp-text: #202124;
+  --pp-text-secondary: #5F6368;
+  --pp-primary: #1A73E8;
+  --pp-primary-hover: #1765CC;
+  --pp-primary-active: #1458B8;
+  --pp-selected-bg: #E8F0FE;
+  --pp-border: #DADCE0;
+  --pp-border-strong: #BDC1C6;
+
+  /* --- 语义色（低饱和，均配深色文字保证对比度）--- */
+  --pp-success-text: #1E6B3A;
+  --pp-success-bg: #E6F4EA;
+  --pp-success-border: #CEEAD6;
+  --pp-warning-text: #8A5300;
+  --pp-warning-bg: #FEF7E0;
+  --pp-warning-border: #FDE293;
+  --pp-danger-text: #A50E0E;
+  --pp-danger-bg: #FCE8E6;
+  --pp-danger-border: #F6C7C2;
+  --pp-info-text: #174EA6;
+  --pp-info-bg: #E8F0FE;
+  --pp-info-border: #D2E3FC;
+  --pp-neutral-text: #5F6368;
+  --pp-neutral-bg: #F1F3F4;
+  --pp-neutral-border: #DADCE0;
+
+  /* --- 间距：4/8 体系 --- */
+  --pp-space-1: 4px;
+  --pp-space-2: 8px;
+  --pp-space-3: 12px;
+  --pp-space-4: 16px;
+  --pp-space-5: 24px;
+  --pp-space-6: 32px;
+  --pp-space-7: 48px;
+
+  /* --- 字号层级（1.25 左右的比例，中文可读优先）--- */
+  --pp-font-sans: Arial, "Noto Sans SC", "Microsoft YaHei", "PingFang SC",
+    "Hiragino Sans GB", "Helvetica Neue", sans-serif;
+  --pp-fs-page-title: 22px;   /* 页面主标题 */
+  --pp-fs-section: 15px;      /* 分区标题 */
+  --pp-fs-body: 14px;         /* 正文 */
+  --pp-fs-meta: 13px;         /* 说明文字、元数据 */
+  --pp-fs-micro: 12px;        /* 表格内次要信息 */
+  --pp-lh-body: 1.6;
+  --pp-lh-tight: 1.4;
+
+  /* --- 圆角与阴影 --- */
+  --pp-radius-sm: 4px;
+  --pp-radius: 8px;
+  --pp-radius-pill: 999px;
+  --pp-shadow-1: 0 1px 2px rgba(60, 64, 67, 0.10);
+  --pp-shadow-2: 0 1px 3px rgba(60, 64, 67, 0.14), 0 4px 8px rgba(60, 64, 67, 0.08);
+
+  /* --- 焦点环：键盘可达性的核心，必须清晰可见 --- */
+  --pp-focus-ring: 0 0 0 3px rgba(26, 115, 232, 0.35);
+  --pp-touch: 44px;
+
+  /* --- 覆盖 Bootstrap 变量，让自带组件跟随本设计 --- */
+  --bs-body-bg: var(--pp-bg);
+  --bs-body-color: var(--pp-text);
+  --bs-body-font-family: var(--pp-font-sans);
+  --bs-body-font-size: var(--pp-fs-body);
+  --bs-border-color: var(--pp-border);
+  --bs-link-color: var(--pp-primary);
+  --bs-link-hover-color: var(--pp-primary-hover);
+  --bs-primary: var(--pp-primary);
+}
+
+/* --------------------------------------------------------------------------
+   2. 基础排版
+   -------------------------------------------------------------------------- */
+body {
+  font-family: var(--pp-font-sans);
+  background-color: var(--pp-bg);
+  color: var(--pp-text);
+  font-size: var(--pp-fs-body);
+  line-height: var(--pp-lh-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--pp-primary);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--pp-primary-hover);
+  text-decoration: underline;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--pp-text);
+  line-height: var(--pp-lh-tight);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* 页面主标题：清晰但克制，不用夸张字号 */
+.pp-page-title {
+  font-size: var(--pp-fs-page-title);
+  font-weight: 500;
+  line-height: 1.35;
+  margin: 0;
+  letter-spacing: -0.1px;
+}
+
+/* 分区标题：明显低于页面标题 */
+.pp-section-title {
+  font-size: var(--pp-fs-section);
+  font-weight: 500;
+  color: var(--pp-text);
+  margin: 0;
+}
+
+/* 说明文字/元数据：次级颜色，但保持可读（13px，不用 11px） */
+.pp-meta,
+.text-body-secondary {
+  color: var(--pp-text-secondary) !important;
+}
+.pp-meta {
+  font-size: var(--pp-fs-meta);
+  line-height: 1.5;
+}
+
+.pp-micro {
+  font-size: var(--pp-fs-micro);
+  color: var(--pp-text-secondary);
+  line-height: 1.45;
+}
+
+/* 页头：标题 + 说明 + 主要操作，统一节奏 */
+.pp-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--pp-space-3);
+  margin-bottom: var(--pp-space-4);
+}
+.pp-page-header__main {
+  min-width: 0;      /* 长标题可收缩，不把按钮挤出屏幕 */
+  flex: 1 1 auto;
+}
+.pp-page-header__desc {
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text-secondary);
+  margin: var(--pp-space-1) 0 0;
+  line-height: 1.5;
+}
+.pp-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2);
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   3. 表面（替代满屏 card + shadow）
+   -------------------------------------------------------------------------- */
+.pp-surface {
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  margin-bottom: var(--pp-space-4);
+  overflow: hidden;   /* 让内部的表格首尾不溢出圆角 */
+}
+.pp-surface__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-2);
+  padding: var(--pp-space-3) var(--pp-space-4);
+  border-bottom: 1px solid var(--pp-border);
+  background: var(--pp-surface);
+}
+.pp-surface__body {
+  padding: var(--pp-space-4);
+}
+.pp-surface__body--flush {
+  padding: 0;
+}
+.pp-surface__footer {
+  padding: var(--pp-space-3) var(--pp-space-4);
+  border-top: 1px solid var(--pp-border);
+  background: #FCFCFD;
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text-secondary);
+}
+
+/* 兼容既有模板里的 card 用法：去掉阴影与厚圆角，统一成上面的表面 */
+.card {
+  --bs-card-border-color: var(--pp-border);
+  --bs-card-border-radius: var(--pp-radius);
+  background-color: var(--pp-surface);
+  box-shadow: none;
+  border: 1px solid var(--pp-border);
+}
+.card.shadow-sm,
+.shadow-sm {
+  box-shadow: none !important;   /* 规范要求：阴影只在必要处使用 */
+}
+.card-header {
+  background-color: var(--pp-surface) !important;
+  border-bottom: 1px solid var(--pp-border);
+  font-weight: 500;
+  font-size: var(--pp-fs-section);
+  padding: var(--pp-space-3) var(--pp-space-4);
+}
+.card-body { padding: var(--pp-space-4); }
+.card-footer {
+  background-color: #FCFCFD !important;
+  border-top: 1px solid var(--pp-border);
+  padding: var(--pp-space-3) var(--pp-space-4);
+}
+
+/* --------------------------------------------------------------------------
+   4. 按钮
+   -------------------------------------------------------------------------- */
+.btn {
+  --bs-btn-border-radius: var(--pp-radius-sm);
+  font-size: var(--pp-fs-body);
+  font-weight: 500;
+  padding: 8px 16px;
+  line-height: 1.4;
+  border-width: 1px;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.btn-sm {
+  font-size: var(--pp-fs-meta);
+  padding: 5px 12px;
+}
+.btn-lg {
+  font-size: 15px;
+  padding: 10px 20px;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--pp-primary);
+  --bs-btn-border-color: var(--pp-primary);
+  --bs-btn-hover-bg: var(--pp-primary-hover);
+  --bs-btn-hover-border-color: var(--pp-primary-hover);
+  --bs-btn-active-bg: var(--pp-primary-active);
+  --bs-btn-active-border-color: var(--pp-primary-active);
+  --bs-btn-disabled-bg: #A8C7EF;
+  --bs-btn-disabled-border-color: #A8C7EF;
+  --bs-btn-color: #fff;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-color: #fff;
+  --bs-btn-disabled-color: #fff;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--pp-primary);
+  --bs-btn-border-color: var(--pp-border-strong);
+  --bs-btn-hover-bg: var(--pp-selected-bg);
+  --bs-btn-hover-border-color: var(--pp-primary);
+  --bs-btn-hover-color: var(--pp-primary-active);
+  --bs-btn-active-bg: var(--pp-selected-bg);
+  --bs-btn-active-color: var(--pp-primary-active);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--pp-text);
+  --bs-btn-border-color: var(--pp-border-strong);
+  --bs-btn-hover-bg: var(--pp-neutral-bg);
+  --bs-btn-hover-border-color: var(--pp-border-strong);
+  --bs-btn-hover-color: var(--pp-text);
+  --bs-btn-active-bg: #E4E7EA;
+  --bs-btn-active-color: var(--pp-text);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--pp-danger-text);
+  --bs-btn-border-color: var(--pp-border-strong);
+  --bs-btn-hover-bg: var(--pp-danger-bg);
+  --bs-btn-hover-border-color: var(--pp-danger-text);
+  --bs-btn-hover-color: var(--pp-danger-text);
+}
+
+.btn-success {
+  --bs-btn-bg: #1E8E3E;
+  --bs-btn-border-color: #1E8E3E;
+  --bs-btn-hover-bg: #1A7F37;
+  --bs-btn-hover-border-color: #1A7F37;
+  --bs-btn-color: #fff;
+  --bs-btn-hover-color: #fff;
+}
+
+.btn-danger {
+  --bs-btn-bg: #C5221F;
+  --bs-btn-border-color: #C5221F;
+  --bs-btn-hover-bg: #B01E1B;
+  --bs-btn-hover-border-color: #B01E1B;
+  --bs-btn-color: #fff;
+  --bs-btn-hover-color: #fff;
+}
+
+.btn-outline-warning {
+  --bs-btn-color: var(--pp-warning-text);
+  --bs-btn-border-color: var(--pp-border-strong);
+  --bs-btn-hover-bg: var(--pp-warning-bg);
+  --bs-btn-hover-border-color: var(--pp-warning-text);
+  --bs-btn-hover-color: var(--pp-warning-text);
+}
+
+/* 键盘焦点：所有可交互元素统一、清晰、不依赖鼠标悬停 */
+.btn:focus-visible,
+a:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible,
+.form-check-input:focus-visible,
+.nav-link:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--pp-primary);
+  outline-offset: 2px;
+  box-shadow: var(--pp-focus-ring);
+}
+
+/* --------------------------------------------------------------------------
+   5. 表单
+   -------------------------------------------------------------------------- */
+.form-label {
+  font-size: var(--pp-fs-meta);
+  font-weight: 500;
+  color: var(--pp-text);
+  margin-bottom: var(--pp-space-1);
+}
+.form-control,
+.form-select {
+  font-size: var(--pp-fs-body);
+  color: var(--pp-text);
+  background-color: var(--pp-surface);
+  border: 1px solid var(--pp-border-strong);
+  border-radius: var(--pp-radius-sm);
+  padding: 8px 12px;
+  min-height: 38px;
+}
+.form-control::placeholder { color: #9AA0A6; }
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--pp-primary);
+  box-shadow: var(--pp-focus-ring);
+  outline: none;
+}
+.form-control-sm,
+.form-select-sm {
+  font-size: var(--pp-fs-meta);
+  padding: 5px 10px;
+  min-height: 32px;
+}
+.form-text {
+  font-size: var(--pp-fs-micro);
+  color: var(--pp-text-secondary);
+  margin-top: var(--pp-space-1);
+  line-height: 1.5;
+}
+.form-check-input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-color: var(--pp-border-strong);
+}
+.form-check-input:checked {
+  background-color: var(--pp-primary);
+  border-color: var(--pp-primary);
+}
+.form-check-label {
+  font-size: var(--pp-fs-meta);
+  padding-left: var(--pp-space-1);
+}
+
+/* 必填标记：星号旁边留出空隙，不像手误 */
+.pp-required {
+  color: var(--pp-danger-text);
+  margin-left: 2px;
+}
+
+/* 字段级错误：出现在字段下方，不遮挡其他内容 */
+.pp-field-error {
+  font-size: var(--pp-fs-micro);
+  color: var(--pp-danger-text);
+  margin-top: var(--pp-space-1);
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* 校验失败时给字段本身也加边框，不只靠颜色 —— 配合文字错误提示 */
+.form-control.is-invalid,
+.form-select.is-invalid {
+  border-color: var(--pp-danger-text);
+  background-image: none;
+}
+
+/* 文件上传：加大点击区域并给清楚的选中反馈 */
+input[type="file"].form-control {
+  padding: 6px 10px;
+}
+input[type="file"].form-control::file-selector-button {
+  background: var(--pp-neutral-bg);
+  border: 1px solid var(--pp-border-strong);
+  border-radius: var(--pp-radius-sm);
+  color: var(--pp-text);
+  font-size: var(--pp-fs-meta);
+  padding: 6px 12px;
+  margin-right: var(--pp-space-3);
+  cursor: pointer;
+}
+input[type="file"].form-control::file-selector-button:hover {
+  background: #E4E7EA;
+}
+
+/* 表单分组：把相关字段视觉聚拢，避免长表单散乱 */
+.pp-form-group + .pp-form-group {
+  margin-top: var(--pp-space-5);
+  padding-top: var(--pp-space-4);
+  border-top: 1px solid var(--pp-border);
+}
+.pp-form-group__title {
+  font-size: var(--pp-fs-section);
+  font-weight: 500;
+  margin: 0 0 var(--pp-space-1);
+}
+
+/* 表单操作区：与字段拉开距离，主次按钮顺序固定 */
+.pp-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2);
+  margin-top: var(--pp-space-5);
+  padding-top: var(--pp-space-4);
+  border-top: 1px solid var(--pp-border);
+}
+
+/* --------------------------------------------------------------------------
+   6. 表格
+   -------------------------------------------------------------------------- */
+.table {
+  --bs-table-border-color: var(--pp-border);
+  --bs-table-bg: transparent;
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text);
+  margin-bottom: 0;
+}
+.table > thead th {
+  font-size: var(--pp-fs-micro);
+  font-weight: 500;
+  color: var(--pp-text-secondary);
+  text-transform: none;
+  letter-spacing: 0.2px;
+  background: #FBFBFC;
+  border-bottom: 1px solid var(--pp-border);
+  padding: 10px 12px;
+  white-space: nowrap;
+}
+.table > tbody > tr > td {
+  padding: 12px;
+  border-bottom: 1px solid #EFF0F1;
+  vertical-align: middle;
+}
+.table > tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+.table-hover > tbody > tr:hover > td {
+  background-color: #F8F9FA;
+}
+.table-sm > :not(caption) > * > * {
+  padding: 8px 10px;
+}
+/* 数值列用等宽数字，纵向可比 */
+.pp-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 首列是主要内容：稍强，但不加粗到刺眼 */
+.pp-cell-primary {
+  color: var(--pp-text);
+  font-weight: 500;
+}
+.pp-cell-sub {
+  font-size: var(--pp-fs-micro);
+  color: var(--pp-text-secondary);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------------------------------
+   7. 状态标记
+   规范要求：不能只用颜色作为唯一识别方式 —— 每个标记都带文字。
+   -------------------------------------------------------------------------- */
+.pp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--pp-fs-micro);
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 2px 8px;
+  border-radius: var(--pp-radius-pill);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.pp-status--success {
+  color: var(--pp-success-text);
+  background: var(--pp-success-bg);
+  border-color: var(--pp-success-border);
+}
+.pp-status--warning {
+  color: var(--pp-warning-text);
+  background: var(--pp-warning-bg);
+  border-color: var(--pp-warning-border);
+}
+.pp-status--danger {
+  color: var(--pp-danger-text);
+  background: var(--pp-danger-bg);
+  border-color: var(--pp-danger-border);
+}
+.pp-status--info {
+  color: var(--pp-info-text);
+  background: var(--pp-info-bg);
+  border-color: var(--pp-info-border);
+}
+.pp-status--neutral {
+  color: var(--pp-neutral-text);
+  background: var(--pp-neutral-bg);
+  border-color: var(--pp-neutral-border);
+}
+/* 状态前的形状标记：圆点/三角/叉，作为颜色之外的第二重区分 */
+.pp-status__mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+}
+.pp-status--warning .pp-status__mark { border-radius: 1px; }
+.pp-status--danger .pp-status__mark { border-radius: 1px; }
+
+/* 兼容既有 badge 用法，统一圆角与字号 */
+.badge {
+  font-size: var(--pp-fs-micro);
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--pp-radius-pill);
+}
+.text-bg-light {
+  color: var(--pp-text-secondary) !important;
+  background-color: var(--pp-neutral-bg) !important;
+  border-color: var(--pp-border) !important;
+}
+.text-bg-secondary { background-color: #5F6368 !important; }
+.text-bg-success { background-color: #1E8E3E !important; }
+.text-bg-warning { background-color: #F9AB00 !important; color: #3C2A00 !important; }
+.text-bg-danger { background-color: #C5221F !important; }
+.text-bg-primary { background-color: var(--pp-primary) !important; }
+.text-bg-dark { background-color: #3C4043 !important; }
+
+/* --------------------------------------------------------------------------
+   8. 提示条（messages / alert）
+   -------------------------------------------------------------------------- */
+.alert {
+  border-radius: var(--pp-radius-sm);
+  border: 1px solid transparent;
+  font-size: var(--pp-fs-meta);
+  padding: var(--pp-space-3) var(--pp-space-4);
+  margin-bottom: var(--pp-space-3);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pp-space-2);
+}
+.alert-success { color: var(--pp-success-text); background: var(--pp-success-bg); border-color: var(--pp-success-border); }
+.alert-warning { color: var(--pp-warning-text); background: var(--pp-warning-bg); border-color: var(--pp-warning-border); }
+.alert-danger,
+.alert-error  { color: var(--pp-danger-text); background: var(--pp-danger-bg); border-color: var(--pp-danger-border); }
+.alert-info    { color: var(--pp-info-text); background: var(--pp-info-bg); border-color: var(--pp-info-border); }
+.alert-secondary,
+.alert-light   { color: var(--pp-neutral-text); background: var(--pp-neutral-bg); border-color: var(--pp-neutral-border); }
+.alert .btn-close { margin-left: auto; padding: 0.5rem; }
+
+/* --------------------------------------------------------------------------
+   9. 筛选栏
+   用轻量分段控件代替一排按钮，选中态用底色而非深色块
+   -------------------------------------------------------------------------- */
+.pp-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pp-space-2);
+  margin-bottom: var(--pp-space-4);
+}
+.pp-segment {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  background: var(--pp-neutral-bg);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-pill);
+}
+.pp-segment__item {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  font-size: var(--pp-fs-meta);
+  font-weight: 500;
+  color: var(--pp-text-secondary);
+  border-radius: var(--pp-radius-pill);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pp-segment__item:hover {
+  color: var(--pp-text);
+  background: rgba(255, 255, 255, .7);
+  text-decoration: none;
+}
+.pp-segment__item[aria-current="true"],
+.pp-segment__item.is-active {
+  color: var(--pp-info-text);
+  background: var(--pp-surface);
+  box-shadow: var(--pp-shadow-1);
+}
+.pp-segment__item:focus-visible {
+  outline: 2px solid var(--pp-primary);
+  outline-offset: 1px;
+}
+
+/* --------------------------------------------------------------------------
+   10. 面包屑
+   -------------------------------------------------------------------------- */
+.breadcrumb {
+  font-size: var(--pp-fs-micro);
+  margin-bottom: var(--pp-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.breadcrumb-item + .breadcrumb-item::before {
+  content: "/";
+  color: #9AA0A6;
+  padding: 0 6px;
+}
+.breadcrumb-item a {
+  color: var(--pp-text-secondary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.breadcrumb-item a:hover {
+  color: var(--pp-primary);
+  text-decoration: underline;
+}
+.breadcrumb-item.active {
+  color: var(--pp-text);
+}
+/* 移动端：面包屑是常用的返回路径，保证可点高度 */
 @media (max-width: 767.98px) {
-  /* 小尺寸按钮：加大上下内边距，保证点得到 */
-  .btn-sm {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .breadcrumb { row-gap: 2px; }
+  .breadcrumb-item a {
+    min-height: var(--pp-touch);
+    padding: 0 2px;
+  }
+  .breadcrumb-item + .breadcrumb-item::before { padding: 0 4px; }
+}
+
+/* --------------------------------------------------------------------------
+   11. 顶栏导航
+   桌面：品牌 + 分组导航 + 用户区
+   移动：品牌单行省略 + 可展开菜单
+   -------------------------------------------------------------------------- */
+.pp-header {
+  background: var(--pp-surface);
+  border-bottom: 1px solid var(--pp-border);
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+.pp-header__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-4);
+  min-height: 56px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--pp-space-4);
+}
+
+/* 品牌：不用 emoji 当正式图标，用 SVG + 文字 */
+.pp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  min-width: 0;              /* 关键：允许在窄屏收缩 */
+  flex-shrink: 1;
+  color: var(--pp-text);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  min-height: var(--pp-touch);   /* 保证整块可点，而非只有文字行高 */
+}
+.pp-brand:hover { color: var(--pp-text); text-decoration: none; }
+.pp-brand__mark {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: block;
+}
+.pp-brand__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* 主导航 */
+.pp-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pp-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--pp-radius-sm);
+  font-size: var(--pp-fs-meta);
+  font-weight: 500;
+  color: var(--pp-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pp-nav__link:hover {
+  background: var(--pp-neutral-bg);
+  color: var(--pp-text);
+  text-decoration: none;
+}
+/* 当前页：浅底 + 主色文字，克制但明确 */
+.pp-nav__link.is-active {
+  background: var(--pp-selected-bg);
+  color: var(--pp-primary);
+}
+.pp-nav__link:focus-visible {
+  outline: 2px solid var(--pp-primary);
+  outline-offset: 1px;
+}
+
+/* 用户区 */
+.pp-user {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  flex-shrink: 0;
+}
+.pp-user__name {
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text-secondary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pp-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--pp-text-secondary);
+  cursor: pointer;
+}
+.pp-icon-btn:hover { background: var(--pp-neutral-bg); color: var(--pp-text); }
+
+/* 移动端菜单按钮 */
+.pp-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--pp-touch);
+  height: var(--pp-touch);
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  border-radius: var(--pp-radius-sm);
+  color: var(--pp-text);
+  cursor: pointer;
+}
+.pp-menu-btn:hover { background: var(--pp-neutral-bg); }
+
+/* --------------------------------------------------------------------------
+   12. 移动端
+   -------------------------------------------------------------------------- */
+@media (max-width: 991.98px) {
+  /* 导航收起为下拉面板 */
+  .pp-menu-btn { display: inline-flex; }
+
+  .pp-nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    background: var(--pp-surface);
+    border-bottom: 1px solid var(--pp-border);
+    padding: var(--pp-space-2);
+    box-shadow: var(--pp-shadow-2);
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+  .pp-nav.is-open { display: flex; }
+
+  .pp-nav__link {
+    height: auto;
+    min-height: var(--pp-touch);
+    padding: 0 12px;
+    font-size: var(--pp-fs-body);
   }
 
-  /* 普通按钮同样保证最小高度 */
+  /* 用户区在窄屏移到菜单里，顶栏只留品牌与菜单键 */
+  .pp-user { display: none; }
+  .pp-nav .pp-user-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pp-space-2);
+    margin-top: var(--pp-space-2);
+    padding-top: var(--pp-space-3);
+    border-top: 1px solid var(--pp-border);
+  }
+  .pp-nav .pp-user-mobile .pp-nav__link { width: 100%; }
+}
+
+@media (min-width: 992px) {
+  .pp-user-mobile { display: none !important; }
+}
+
+/* 窄屏容器留白：避免按钮贴边 */
+@media (max-width: 767.98px) {
+  .container,
+  .container-fluid {
+    padding-left: var(--pp-space-4);
+    padding-right: var(--pp-space-4);
+  }
+
+  /* 触控目标 ≥44px（WCAG 2.5.8 建议下限） */
   .btn {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    min-height: var(--pp-touch);
   }
-
-  /* 表单控件：避免移动端浏览器聚焦时自动放大（字号 <16px 会触发） */
+  .btn-sm {
+    min-height: var(--pp-touch);
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  /* 表单控件 16px 字号，避免 iOS 聚焦时自动放大页面 */
   .form-control,
   .form-select {
-    font-size: 1rem;
-    min-height: 44px;
+    font-size: 16px;
+    min-height: var(--pp-touch);
+  }
+  .pp-segment__item {
+    min-height: 36px;
+    padding: 6px 14px;
   }
 
-  /* 导航栏链接撑满行高，减少误触 */
-  .navbar-nav .nav-link {
-    padding-top: 0.6rem;
-    padding-bottom: 0.6rem;
-  }
-
-  /* 状态筛选按钮换行排列，避免在窄屏挤成一行导致过窄 */
-  .filter-bar {
-    flex-wrap: wrap;
-  }
-}
-
-/* 卡片中的次要操作按钮在窄屏放宽一些，但不要占满整行显得笨重 */
-@media (max-width: 576px) {
-  .card-footer .btn-sm {
+  .pp-page-title { font-size: 20px; }
+  .pp-page-header { gap: var(--pp-space-2); }
+  /* 页头主操作在窄屏占满一行，便于点按 */
+  .pp-page-header__actions {
     width: 100%;
   }
+  .pp-page-header__actions .btn {
+    flex: 1 1 auto;
+  }
 }
+
+/* --------------------------------------------------------------------------
+   13. 响应式表格
+   窄屏不强行塞表格：用 data-label 转成两列键值卡片，避免横向溢出
+   -------------------------------------------------------------------------- */
+@media (max-width: 767.98px) {
+  .pp-table-stack thead {
+    display: none;
+  }
+  .pp-table-stack,
+  .pp-table-stack tbody,
+  .pp-table-stack tr,
+  .pp-table-stack td {
+    display: block;
+    width: 100%;
+  }
+  .pp-table-stack tr {
+    padding: var(--pp-space-3) var(--pp-space-4);
+    border-bottom: 1px solid var(--pp-border);
+  }
+  .pp-table-stack tr:last-child {
+    border-bottom: 0;
+  }
+  .pp-table-stack td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--pp-space-3);
+    padding: 3px 0 !important;
+    border: 0 !important;
+    text-align: left !important;
+  }
+  .pp-table-stack td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: var(--pp-fs-micro);
+    color: var(--pp-text-secondary);
+  }
+  /* 第一行通常是标题，做成整行显示且不加标签 */
+  .pp-table-stack td.pp-cell-lead {
+    display: block;
+    padding-bottom: var(--pp-space-2) !important;
+  }
+  .pp-table-stack td.pp-cell-lead::before {
+    content: none;
+  }
+  /* 操作列单独占一行，按钮右对齐 */
+  .pp-table-stack td.pp-cell-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: var(--pp-space-2) !important;
+  }
+  .pp-table-stack td.pp-cell-actions::before {
+    content: none;
+  }
+  /* 窄屏下数值列不再右对齐 */
+  .pp-table-stack .pp-num {
+    text-align: right;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   14. 详情页信息列表
+   用两列键值，主要信息在前、次要信息降低权重
+   -------------------------------------------------------------------------- */
+.pp-dl {
+  margin: 0;
+  font-size: var(--pp-fs-meta);
+}
+.pp-dl__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2);
+  padding: 6px 0;
+}
+.pp-dl__row + .pp-dl__row {
+  border-top: 1px solid #F1F2F3;
+}
+.pp-dl__label {
+  flex: 0 0 104px;
+  color: var(--pp-text-secondary);
+}
+.pp-dl__value {
+  flex: 1 1 0;
+  min-width: 0;
+  color: var(--pp-text);
+  overflow-wrap: anywhere;   /* 长 URL / 长名称不撑破布局 */
+}
+@media (max-width: 575.98px) {
+  .pp-dl__label { flex-basis: 88px; }
+}
+
+/* --------------------------------------------------------------------------
+   15. 空状态
+   说明为什么空 + 下一步能做什么，不用装饰插画
+   -------------------------------------------------------------------------- */
+.pp-empty {
+  padding: var(--pp-space-7) var(--pp-space-4);
+  text-align: center;
+  color: var(--pp-text-secondary);
+}
+.pp-empty__title {
+  font-size: var(--pp-fs-body);
+  color: var(--pp-text);
+  margin: 0 0 var(--pp-space-1);
+  font-weight: 500;
+}
+.pp-empty__desc {
+  font-size: var(--pp-fs-meta);
+  margin: 0 0 var(--pp-space-3);
+  color: var(--pp-text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   16. 内容容器宽度
+   说明：Bootstrap 的 .container 仍然保留（既有测试要求渲染结果里存在该
+   class，且它提供了成熟的断点留白）。pp-container 只在其上叠加
+   最大宽度与纵向节奏，不做替换 —— 这样测试与视觉都不牺牲。
+   -------------------------------------------------------------------------- */
+.pp-container { max-width: 1200px; margin: 0 auto; padding: var(--pp-space-5) var(--pp-space-4); }
+.pp-container--narrow { max-width: 800px; }
+.pp-container--form { max-width: 720px; }
+.pp-container--auth { max-width: 400px; }
+.pp-container--messages { padding-top: var(--pp-space-4); padding-bottom: 0; }
+
+/* 与 .container 同时使用时，交给 container 控制留白，这里只管纵向节奏 */
+.container.pp-container { padding-top: var(--pp-space-5); padding-bottom: var(--pp-space-5); }
+
+@media (max-width: 767.98px) {
+  .pp-container { padding: var(--pp-space-4) var(--pp-space-3); }
+  .container.pp-container { padding-left: var(--pp-space-4); padding-right: var(--pp-space-4); }
+}
+
+/* --------------------------------------------------------------------------
+   16b. 登录页头部
+   -------------------------------------------------------------------------- */
+.pp-auth-head { text-align: center; margin-bottom: var(--pp-space-5); }
+.pp-auth-head__mark { width: 40px; height: 40px; display: block; margin: 0 auto var(--pp-space-3); }
+.pp-auth-head__title {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 var(--pp-space-2);
+  letter-spacing: -0.1px;
+}
+.pp-auth-head__desc {
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------------------------------
+   17. 辅助
+   -------------------------------------------------------------------------- */
+.pp-stack-2 > * + * { margin-top: var(--pp-space-2); }
+.pp-stack-3 > * + * { margin-top: var(--pp-space-3); }
+.pp-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2);
+}
+.pp-divider {
+  height: 1px;
+  background: var(--pp-border);
+  border: 0;
+  margin: var(--pp-space-4) 0;
+}
+
+/* 版本卡片：当前版本用左侧主色细线标记，不用整块彩色背景 */
+.pp-version {
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-sm);
+  padding: var(--pp-space-3) var(--pp-space-4);
+}
+.pp-version + .pp-version { margin-top: var(--pp-space-3); }
+.pp-version--current {
+  border-color: #C6D9F7;
+  background: #FBFCFE;
+  box-shadow: inset 3px 0 0 var(--pp-primary);
+}
+
+/* 图片附件缩略图 */
+.pp-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2);
+}
+.pp-thumb {
+  display: block;
+  border-radius: var(--pp-radius-sm);
+  border: 1px solid var(--pp-border);
+  overflow: hidden;
+  line-height: 0;
+}
+.pp-thumb img {
+  width: 110px;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+}
+.pp-thumb:hover { border-color: var(--pp-primary); }
+
+/* 跳转到主内容的链接：键盘用户第一个 Tab 就能跳过导航 */
+/* 跳到主内容。
+   实现要点：不能用 left:-9999px 把元素推出视口 —— 实测（Chromium）
+   那样会让它**完全脱离 Tab 序列**，键盘用户永远聚焦不到，
+   等于这个无障碍入口形同虚设。
+   正确做法是"裁剪隐藏"：元素仍在原位、仍在 Tab 序列中，
+   但不可见且不占据布局，聚焦时再完整显示。 */
+.pp-skip-link {
+  position: absolute;
+  top: 0;
+  left: var(--pp-space-3);
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  background: var(--pp-surface);
+  color: var(--pp-primary);
+  border: 1px solid var(--pp-primary);
+  border-radius: var(--pp-radius-sm);
+  z-index: 2000;
+}
+.pp-skip-link:focus,
+.pp-skip-link:focus-visible {
+  width: auto;
+  height: auto;
+  padding: var(--pp-space-2) var(--pp-space-4);
+  clip-path: none;
+  overflow: visible;
+  outline: 2px solid var(--pp-primary);
+  outline-offset: 2px;
+}
+
+/* 页脚 */
+.pp-footer {
+  border-top: 1px solid var(--pp-border);
+  background: var(--pp-surface);
+  margin-top: auto;
+}
+.pp-footer__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--pp-space-4);
+  font-size: var(--pp-fs-micro);
+  color: var(--pp-text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2);
+  justify-content: space-between;
+}
+
+/* 无 JS 时可访问的导航降级：直接展开菜单 */
+.no-js .pp-nav { display: flex; position: static; box-shadow: none; }
+.no-js .pp-menu-btn { display: none; }
+
+/* 尊重"减少动态效果"的系统设置 */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* --------------------------------------------------------------------------
+   18. 首页入口网格与信息列表
+   -------------------------------------------------------------------------- */
+.pp-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--pp-space-2);
+}
+.pp-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-2);
+  min-height: 48px;
+  padding: var(--pp-space-3) var(--pp-space-4);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-sm);
+  background: var(--pp-surface);
+  color: var(--pp-text);
+  font-size: var(--pp-fs-body);
+  font-weight: 500;
+  text-decoration: none;
+}
+.pp-entry:hover {
+  border-color: var(--pp-primary);
+  background: var(--pp-selected-bg);
+  color: var(--pp-primary-active);
+  text-decoration: none;
+}
+.pp-entry--primary {
+  border-color: #C6D9F7;
+  background: var(--pp-selected-bg);
+  color: var(--pp-info-text);
+}
+.pp-entry__arrow { flex-shrink: 0; color: var(--pp-text-secondary); }
+.pp-entry:hover .pp-entry__arrow { color: var(--pp-primary); }
+
+.pp-home-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-4);
+  margin-top: var(--pp-space-4);
+  padding-top: var(--pp-space-3);
+  border-top: 1px solid var(--pp-border);
+  font-size: var(--pp-fs-meta);
+}
+.pp-home-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;          /* 桌面端；移动端在下方媒体查询里再放大 */
+}
+@media (max-width: 767.98px) {
+  .pp-home-links { gap: var(--pp-space-3); }
+  .pp-home-links a { min-height: var(--pp-touch); }
+}
+
+/* 通用信息列表：名称 + 说明两行，层级清楚 */
+.pp-list { list-style: none; margin: 0; padding: 0; }
+.pp-list__item {
+  padding: var(--pp-space-3) var(--pp-space-4);
+  border-bottom: 1px solid #F1F2F3;
+}
+.pp-list__item:last-child { border-bottom: 0; }
+.pp-list__name {
+  display: block;
+  font-size: var(--pp-fs-body);
+  color: var(--pp-text);
+  font-weight: 500;
+}
+.pp-list__desc {
+  display: block;
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text-secondary);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+@media (max-width: 575.98px) {
+  .pp-entry-grid { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------------------------------------------
+   19. 导航补充元素
+   -------------------------------------------------------------------------- */
+/* 桌面端分组分隔线：把"日常工作"与"管理配置"分开，不用文字标题堆砌 */
+.pp-nav__divider {
+  width: 1px;
+  height: 20px;
+  background: var(--pp-border);
+  margin: 0 var(--pp-space-2);
+  flex-shrink: 0;
+}
+@media (max-width: 991.98px) {
+  .pp-nav__divider {
+    width: 100%;
+    height: 1px;
+    margin: var(--pp-space-2) 0;
+  }
+}
+
+/* 移动端菜单里的用户名：不可点，仅作标识 */
+.pp-user-mobile__name {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text-secondary);
+}
+
+/* 退出登录按钮：做成通栏可点，且用语义色而非仅靠位置区分 */
+.pp-nav__link--danger {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--pp-danger-text);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.pp-nav__link--danger:hover {
+  background: var(--pp-danger-bg);
+  color: var(--pp-danger-text);
+}
+
+/* --------------------------------------------------------------------------
+   20. 复选框包装与入口标签
+   -------------------------------------------------------------------------- */
+/* 复选框居中可点：把 label 撑成整格，点哪都能切换，且满足触控尺寸 */
+.pp-check-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--pp-touch);
+  min-height: 32px;
+  margin: 0;
+  cursor: pointer;
+}
+.pp-check-wrap .form-check-input {
+  margin: 0;
+  float: none;
+}
+@media (max-width: 767.98px) {
+  .pp-check-wrap { min-height: var(--pp-touch); }
+}
+
+.pp-entry__label { min-width: 0; overflow-wrap: anywhere; }
+
+/* --------------------------------------------------------------------------
+   21. 列表项变体：左信息 + 右操作
+   -------------------------------------------------------------------------- */
+.pp-list__item--split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-3);
+}
+.pp-list__main { min-width: 0; }
+@media (max-width: 575.98px) {
+  .pp-list__item--split { align-items: stretch; }
+  .pp-list__item--split .btn { width: 100%; }
+}
+
+/* --------------------------------------------------------------------------
+   22. 版本卡片内部结构与附件行
+   -------------------------------------------------------------------------- */
+.pp-version__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-2);
+  margin-bottom: var(--pp-space-2);
+}
+.pp-version__no {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  font-size: var(--pp-fs-body);
+  font-weight: 500;
+}
+.pp-version__text {
+  font-size: var(--pp-fs-body);
+  white-space: pre-wrap;      /* 保留作者换行，但不溢出错行 */
+  overflow-wrap: anywhere;
+  margin: 0 0 var(--pp-space-2);
+}
+
+.pp-thumb__fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 110px;
+  height: 110px;
+  padding: var(--pp-space-2);
+  font-size: var(--pp-fs-micro);
+  color: var(--pp-text-secondary);
+  background: var(--pp-neutral-bg);
+  text-align: center;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+/* 附件行：类型标签 + 可点内容，长 URL 不撑破布局 */
+.pp-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2);
+  font-size: var(--pp-fs-meta);
+  padding: 3px 0;
+}
+.pp-attach-row__type {
+  flex: 0 0 62px;
+  color: var(--pp-text-secondary);
+}
+.pp-attach-row__value {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------------------
+   23. 审核记录条目
+   -------------------------------------------------------------------------- */
+.pp-log__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pp-space-2);
+}
+.pp-log__body {
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text);
+  margin-top: var(--pp-space-1);
+  overflow-wrap: anywhere;
+}
+.pp-log__label {
+  color: var(--pp-text-secondary);
+  margin-right: var(--pp-space-1);
+}
+
+/* --------------------------------------------------------------------------
+   24. 小节标题与单选组
+   -------------------------------------------------------------------------- */
+/* 详情页里的小节标题：比分区标题再低一级，用于"文字说明/图片证明"等 */
+.pp-subhead {
+  font-size: var(--pp-fs-meta);
+  font-weight: 500;
+  color: var(--pp-text-secondary);
+  margin: var(--pp-space-4) 0 var(--pp-space-2);
+  padding-bottom: var(--pp-space-1);
+  border-bottom: 1px solid var(--pp-border);
+}
+.pp-subhead:first-child { margin-top: 0; }
+
+/* 单选组：每项整行可点，选中态用底色 + 描边，不只靠圆点 */
+.pp-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pp-space-2);
+}
+.pp-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  min-height: var(--pp-touch);
+  padding: var(--pp-space-2) var(--pp-space-3);
+  border: 1px solid var(--pp-border-strong);
+  border-radius: var(--pp-radius-sm);
+  cursor: pointer;
+  font-size: var(--pp-fs-body);
+  margin: 0;
+}
+.pp-radio:hover { background: var(--pp-neutral-bg); }
+.pp-radio:has(input:checked) {
+  border-color: var(--pp-primary);
+  background: var(--pp-selected-bg);
+  color: var(--pp-info-text);
+}
+.pp-radio input { margin: 0; flex-shrink: 0; }
+.pp-radio__label { min-width: 0; }
+
+.pp-form-legend {
+  font-size: var(--pp-fs-meta);
+  font-weight: 500;
+  color: var(--pp-text);
+  margin-bottom: var(--pp-space-2);
+  padding: 0;
+  float: none;
+  width: auto;
+}
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+/* 缩略图项：图 + 文件名 */
+.pp-thumb-item { max-width: 110px; }
+.pp-thumb-item__name {
+  font-size: var(--pp-fs-micro);
+  color: var(--pp-text-secondary);
+  margin-top: var(--pp-space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   25. 筛选表单与统计概览
+   -------------------------------------------------------------------------- */
+/* 轻量筛选行（管理端记录列表） */
+.pp-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--pp-space-3);
+}
+.pp-filter-form__item { flex: 1 1 200px; min-width: 0; }
+.pp-filter-form__actions {
+  display: flex;
+  gap: var(--pp-space-2);
+  flex-shrink: 0;
+}
+
+/* 报表筛选：8 项用网格排，避免挤在一条线上 */
+.pp-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--pp-space-3) var(--pp-space-4);
+}
+@media (max-width: 1199.98px) {
+  .pp-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 991.98px) {
+  .pp-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575.98px) {
+  .pp-filter-grid { grid-template-columns: 1fr; }
+}
+.pp-filter-grid__item { min-width: 0; }
+.pp-filter-grid__item--check { display: flex; align-items: flex-end; }
+.pp-check-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pp-space-2);
+  min-height: 32px;
+  font-size: var(--pp-fs-meta);
+  margin: 0;
+  cursor: pointer;
+}
+.pp-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pp-space-2);
+  margin-top: var(--pp-space-4);
+  padding-top: var(--pp-space-3);
+  border-top: 1px solid var(--pp-border);
+}
+
+/* 概览数字：克制呈现，不做大屏数字墙 */
+.pp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--pp-space-3);
+}
+.pp-stat {
+  padding: var(--pp-space-3);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-sm);
+  background: #FCFCFD;
+}
+.pp-stat--alert {
+  border-color: var(--pp-danger-border);
+  background: var(--pp-danger-bg);
+}
+.pp-stat__num {
+  display: block;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--pp-text);
+}
+.pp-stat--alert .pp-stat__num { color: var(--pp-danger-text); }
+.pp-stat__label {
+  display: block;
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text-secondary);
+  margin-top: var(--pp-space-1);
+  line-height: 1.4;
+}
+
+/* 表格内的复选框（行选择等场景）保持正常尺寸 */
+.table .form-check-input { margin: 0; }
+
+/* --------------------------------------------------------------------------
+   26. 多选下拉（分配干事）在窄屏的适配
+   -------------------------------------------------------------------------- */
+select[multiple].form-select {
+  min-height: 180px;
+  padding: var(--pp-space-1);
+}
+select[multiple].form-select option {
+  padding: 6px 8px;
+  border-radius: 3px;
+}
+select[multiple].form-select option:checked {
+  background: var(--pp-selected-bg) linear-gradient(0deg, var(--pp-selected-bg), var(--pp-selected-bg));
+  color: var(--pp-info-text);
+}
+@media (max-width: 767.98px) {
+  select[multiple].form-select { min-height: 200px; }
+}
+
+/* --------------------------------------------------------------------------
+   27. 移动端：小巧的可点元素补足到可触控尺寸
+   规范要求交互目标原则上 ≥44×44 CSS 像素（WCAG 2.5.8）。
+   注意：加高的是"可点区域"，视觉尺寸保持原样，避免界面变笨重。
+   -------------------------------------------------------------------------- */
+@media (max-width: 767.98px) {
+  /* 分段控件（筛选切换） */
+  .pp-segment__item {
+    min-height: var(--pp-touch);
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* 提示的关闭按钮：用负外边距扩大点击区而不撑大视觉 */
+  .alert .btn-close {
+    width: var(--pp-touch);
+    height: var(--pp-touch);
+    padding: 0;
+    margin: -12px -12px -12px 0;
+    background-size: 14px;
+    flex-shrink: 0;
+  }
+
+  /* 堆叠表格里的主要链接：整行可点，避免只有文字高度。
+     注意不要覆盖 .btn —— 按钮有自己的触控高度规则，
+     这里若一并覆盖会把按钮压回 36px（比 44px 标准更小）。 */
+  .pp-table-stack td.pp-cell-lead a:not(.btn) {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--pp-touch);
+  }
+  .pp-table-stack td a:not(.btn) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   28. 版式收尾
+   -------------------------------------------------------------------------- */
+
+/* 登录页：表单在剩余空间里垂直居中，避免重心过高、下方大片空白。
+   用 main 上的 flex 而不是固定 margin —— 不同视口高度都能自适应。 */
+.pp-main--auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pp-main--auth .pp-container { width: 100%; }
+
+/* 内容区最小高度：单行列表页也不会在页脚前留下大片死白 */
+.pp-container { min-height: 60vh; }
+
+/* 表格前的说明与表格之间保持一致的节奏 */
+.pp-surface__header + .pp-surface__body--flush { border-top: 0; }
+
+/* 长内容容器：详情页限制行宽，避免中文行长过长影响阅读 */
+.pp-container--narrow .pp-version__text,
+.pp-container--narrow .pp-list__desc { max-width: 62ch; }

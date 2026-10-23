@@ -3,59 +3,63 @@
 {% block title %}工作类型 · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container pp-container">
 
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div>
-      <h1 class="h4 fw-semibold mb-0">工作类型</h1>
-      <p class="small text-body-secondary mb-0">
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">工作类型</h1>
+      <p class="pp-page-header__desc">
         工作类型可以随时增减，新增类型不需要修改程序。
       </p>
     </div>
     {% if can_manage %}
-      <a class="btn btn-primary" href="{% url 'tasks_admin:worktype_create' %}">＋ 新建工作类型</a>
+      <div class="pp-page-header__actions">
+        <a class="btn btn-primary" href="{% url 'tasks_admin:worktype_create' %}">新建工作类型</a>
+      </div>
     {% endif %}
   </div>
 
-  <div class="card shadow-sm">
-    <div class="card-body p-0">
-      {% if worktypes %}
+  <div class="pp-surface">
+    {% if worktypes %}
+      <div class="pp-surface__body pp-surface__body--flush">
         <div class="table-responsive">
-          <table class="table align-middle mb-0">
-            <thead class="table-light">
+          <table class="table pp-table-stack align-middle">
+            <caption class="visually-hidden">工作类型列表，共 {{ worktypes|length }} 条</caption>
+            <thead>
               <tr>
                 <th scope="col">名称</th>
                 <th scope="col" class="d-none d-sm-table-cell">说明</th>
-                <th scope="col" class="text-center">模板数</th>
-                <th scope="col" class="text-center">状态</th>
-                {% if can_manage %}<th scope="col" class="text-end">操作</th>{% endif %}
+                <th scope="col" class="pp-num">模板数</th>
+                <th scope="col" class="pp-num">状态</th>
+                {% if can_manage %}<th scope="col" class="pp-num">操作</th>{% endif %}
               </tr>
             </thead>
             <tbody>
               {% for worktype in worktypes %}
                 <tr>
-                  <td class="fw-semibold">{{ worktype.name }}</td>
-                  <td class="d-none d-sm-table-cell text-body-secondary small">
+                  <td class="pp-cell-lead pp-cell-primary" data-label="名称">{{ worktype.name }}</td>
+                  <td class="d-none d-sm-table-cell pp-cell-sub" data-label="说明">
                     {{ worktype.description|default:"—" }}
                   </td>
-                  <td class="text-center">{{ worktype.template_count }}</td>
-                  <td class="text-center">
+                  <td class="pp-num" data-label="模板数">{{ worktype.template_count }}</td>
+                  <td class="pp-num" data-label="状态">
                     {% if worktype.is_active %}
-                      <span class="badge text-bg-success">启用</span>
+                      <span class="pp-status pp-status--success">
+                        <span class="pp-status__mark" aria-hidden="true"></span>启用</span>
                     {% else %}
-                      <span class="badge text-bg-secondary">已停用</span>
+                      <span class="pp-status pp-status--neutral">
+                        <span class="pp-status__mark" aria-hidden="true"></span>已停用</span>
                     {% endif %}
                   </td>
                   {% if can_manage %}
-                    <td class="text-end">
-                      <div class="d-flex gap-1 justify-content-end flex-wrap">
+                    <td class="pp-num pp-cell-actions" data-label="操作">
+                      <div class="pp-inline-actions" style="justify-content: flex-end;">
                         <a class="btn btn-sm btn-outline-secondary"
                            href="{% url 'tasks_admin:worktype_update' worktype.pk %}">编辑</a>
                         <form method="post"
-                              action="{% url 'tasks_admin:worktype_toggle' worktype.pk %}">
+                              action="{% url 'tasks_admin:worktype_toggle' worktype.pk %}" class="m-0">
                           {% csrf_token %}
-                          <button type="submit"
-                                  class="btn btn-sm {% if worktype.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                          <button type="submit" class="btn btn-sm btn-outline-secondary">
                             {% if worktype.is_active %}停用{% else %}启用{% endif %}
                           </button>
                         </form>
@@ -67,18 +71,21 @@
             </tbody>
           </table>
         </div>
-      {% else %}
-        <p class="text-body-secondary mb-0 p-4">
-          还没有工作类型。{% if can_manage %}点击右上角「新建工作类型」开始。{% endif %}
-        </p>
-      {% endif %}
-    </div>
+      </div>
+      <div class="pp-surface__footer">
+        停用而非删除：已被任务模板或比赛任务引用的工作类型必须保留，否则历史记录会失去分类。
+        停用后它只会从「新建任务」的可选项中消失。
+      </div>
+    {% else %}
+      <div class="pp-empty">
+        <p class="pp-empty__title">还没有工作类型</p>
+        <p class="pp-empty__desc">工作类型是任务模板的必填项，先建一个再创建模板。</p>
+        {% if can_manage %}
+          <a class="btn btn-primary" href="{% url 'tasks_admin:worktype_create' %}">新建工作类型</a>
+        {% endif %}
+      </div>
+    {% endif %}
   </div>
-
-  <p class="small text-body-secondary mt-3 mb-0">
-    停用而非删除：已被任务模板或比赛任务引用的工作类型必须保留，
-    否则历史记录会失去分类。停用后它只会从「新建任务」的可选项中消失。
-  </p>
 
 </div>
 {% endblock %}
