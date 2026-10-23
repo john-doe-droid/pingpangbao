@@ -9,71 +9,16 @@
     <div class="pp-page-header__main">
       <h1 class="pp-page-title">我的工作记录</h1>
       <p class="pp-page-header__desc">
-        只显示{{ user.get_short_name }}自己提交的记录。退回后重新提交不会占用新增次数。
+        你提交过的内容与审核结果都在这里。提交新成果请到「我的任务」。
       </p>
     </div>
     <div class="pp-page-header__actions">
-      <a class="btn btn-outline-secondary" href="{% url 'tasks:my_tasks' %}">我的任务</a>
+      <a class="btn btn-primary" href="{% url 'tasks:my_tasks' %}">去我的任务提交</a>
     </div>
   </div>
 
-  {# ---------- 可提交的任务 ---------- #}
-  {% if task_rows %}
-    <div class="pp-surface">
-      <div class="pp-surface__header">
-        <h2 class="pp-section-title">可以提交的任务</h2>
-        <span class="pp-meta">{{ task_rows|length }} 项</span>
-      </div>
-      <div class="pp-surface__body pp-surface__body--flush">
-        <div class="table-responsive">
-          <table class="table pp-table-stack align-middle">
-            <caption class="visually-hidden">可提交的任务与剩余额度</caption>
-            <thead>
-              <tr>
-                <th scope="col">任务</th>
-                <th scope="col" class="d-none d-md-table-cell">比赛</th>
-                <th scope="col" class="pp-num">已提交 / 上限</th>
-                <th scope="col" class="pp-num">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in task_rows %}
-                <tr>
-                  <td class="pp-cell-lead" data-label="任务">
-                    <span class="pp-cell-primary">{{ row.task.name }}</span>
-                    <div class="pp-cell-sub">{{ row.task.work_type.name }}</div>
-                  </td>
-                  <td class="d-none d-md-table-cell" data-label="比赛">{{ row.competition.name }}</td>
-                  <td class="pp-num" data-label="已提交 / 上限">
-                    <span class="pp-num" style="display:inline;">{{ row.used }} / {{ row.limit }}</span>
-                  </td>
-                  <td class="pp-num pp-cell-actions" data-label="操作">
-                    {% if row.remaining %}
-                      <a class="btn btn-sm btn-primary"
-                         href="{% url 'submissions:submit_new' row.task.pk %}">提交成果</a>
-                    {% else %}
-                      <span class="pp-meta">已达上限</span>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="pp-surface__footer">
-        逾期仍然可以提交，但会被标记为「逾期」。修改被退回的记录不占用新增次数。
-      </div>
-    </div>
-  {% endif %}
-
-  {# ---------- 我的记录 ---------- #}
   {% if rows %}
     <div class="pp-surface">
-      <div class="pp-surface__header">
-        <h2 class="pp-section-title">提交记录</h2>
-        <span class="pp-meta">{{ rows|length }} 条</span>
-      </div>
       <div class="pp-surface__body pp-surface__body--flush">
         <div class="table-responsive">
           <table class="table pp-table-stack align-middle">
@@ -81,9 +26,8 @@
             <thead>
               <tr>
                 <th scope="col">任务</th>
-                <th scope="col" class="d-none d-md-table-cell">比赛</th>
-                <th scope="col" class="pp-num">当前状态</th>
-                <th scope="col" class="d-none d-lg-table-cell">提交时间</th>
+                <th scope="col" class="pp-num">状态</th>
+                <th scope="col" class="d-none d-md-table-cell">提交时间</th>
                 <th scope="col" class="pp-num">版本</th>
                 <th scope="col" class="pp-num">操作</th>
               </tr>
@@ -95,9 +39,9 @@
                     <a class="pp-cell-primary" href="{% url 'submissions:detail' row.submission.pk %}">
                       {{ row.task.name }}
                     </a>
+                    <div class="pp-cell-sub">{{ row.competition.name }}</div>
                   </td>
-                  <td class="d-none d-md-table-cell" data-label="比赛">{{ row.competition.name }}</td>
-                  <td class="pp-num" data-label="当前状态">
+                  <td class="pp-num" data-label="状态">
                     {% if row.submission.status == 'pending' %}
                       <span class="pp-status pp-status--warning">
                         <span class="pp-status__mark" aria-hidden="true"></span>待审核</span>
@@ -109,25 +53,15 @@
                         <span class="pp-status__mark" aria-hidden="true"></span>审核通过</span>
                     {% endif %}
                   </td>
-                  <td class="d-none d-lg-table-cell pp-cell-sub" data-label="提交时间">
+                  <td class="d-none d-md-table-cell pp-cell-sub" data-label="提交时间">
                     {{ row.submission.created_at|date:"Y-m-d H:i" }}
                   </td>
                   <td class="pp-num" data-label="版本">
                     第 {{ row.version.version_no|default:1 }} 版
-                    {% if row.version.is_overdue %}
-                      <div><span class="pp-status pp-status--danger">
-                        <span class="pp-status__mark" aria-hidden="true"></span>逾期</span></div>
-                    {% endif %}
                   </td>
                   <td class="pp-num pp-cell-actions" data-label="操作">
-                    <div class="pp-inline-actions" style="justify-content: flex-end;">
-                      <a class="btn btn-sm btn-outline-secondary"
-                         href="{% url 'submissions:detail' row.submission.pk %}">查看</a>
-                      {% if row.submission.status == 'needs_revision' %}
-                        <a class="btn btn-sm btn-primary"
-                           href="{% url 'submissions:submit_revision' row.submission.pk %}">修改重提</a>
-                      {% endif %}
-                    </div>
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{% url 'submissions:detail' row.submission.pk %}">查看</a>
                   </td>
                 </tr>
               {% endfor %}
@@ -140,13 +74,8 @@
     <div class="pp-surface">
       <div class="pp-empty">
         <p class="pp-empty__title">还没有提交过工作记录</p>
-        <p class="pp-empty__desc">
-          {% if task_rows %}
-            从上方「可以提交的任务」里选一项开始提交。
-          {% else %}
-            你当前没有被分配的任务，因此没有可提交的内容。
-          {% endif %}
-        </p>
+        <p class="pp-empty__desc">去「我的任务」里选一项开始提交。</p>
+        <a class="btn btn-primary" href="{% url 'tasks:my_tasks' %}">去我的任务</a>
       </div>
     </div>
   {% endif %}

@@ -472,15 +472,25 @@ def my_tasks(request):
         )
 
     assignments = list(assignments_for_member(request.user))
+    # 局部导入：submissions 依赖 tasks，模块级互相导入会成环
+    from submissions.models import Submission
+
     now_rows = []
     for assignment in assignments:
         task = assignment.task
+        # 提交额度：让干事在"我的任务"就能看到还能交几份并直接提交，
+        # 不必先去"我的工作记录"绕一圈（P6 简化）。
+        used = Submission.objects.filter(assignment=assignment).count()
+        limit = task.max_records_per_member
         now_rows.append({
             "assignment": assignment,
             "task": task,
             "competition": task.competition,
             "is_overdue": task.is_overdue(),
             "effective_deadline": task.effective_deadline,
+            "used": used,
+            "limit": limit,
+            "remaining": max(limit - used, 0),
         })
 
     return render(request, "tasks/my_tasks.html", {
@@ -512,6 +522,15 @@ def my_task_detail(request, task_pk):
     if assignment is None and not is_admin:
         raise PermissionDenied("该任务没有分配给您。")
 
+    # 提交额度：详情页也要能直接提交，不用先回列表页（P6 简化）
+    from submissions.models import Submission
+
+    used = limit = remaining = 0
+    if assignment is not None:
+        used = Submission.objects.filter(assignment=assignment).count()
+        limit = task.max_records_per_member
+        remaining = max(limit - used, 0)
+
     return render(request, "tasks/my_task_detail.html", {
         "task": task,
         "competition": task.competition,
@@ -520,5 +539,8 @@ def my_task_detail(request, task_pk):
         "effective_deadline": task.effective_deadline,
         "material_rows": task.snapshot_material_rows(),
         "is_admin_view": is_admin and assignment is None,
+        "used": used,
+        "limit": limit,
+        "remaining": remaining,
         "page_title": task.name,
     })

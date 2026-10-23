@@ -22,7 +22,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from core.permissions import login_required_view
+from core.permissions import admin_required
 from submissions.models import SubmissionStatus
 
 from . import excel, statistics
@@ -92,9 +92,19 @@ def _query_string(filters) -> str:
     return urlencode(filters.as_query())
 
 
-@login_required_view
+@admin_required
 def report_page(request):
-    """报表页面：筛选 + 三张表预览 + 导出入口。"""
+    """报表页面（仅社团管理员）：筛选 + 三张表预览 + 导出入口。
+
+    P6 规则变更：原本登录用户都能访问（干事只看得到自己的记录）。
+    但实际使用时，干事看自己的记录去「我的工作记录」就够了，
+    报表页面对他们没有意义；而报表的筛选与汇总又天然是管理视角。
+    因此收紧为仅管理员。这是**有意的权限收紧**，不是接口损坏：
+
+      · 数据范围依旧由 visible_submissions_for() 决定（管理员=全部）；
+      · 非管理员访问会得到 403，而不是静默跳到首页 ——
+        静默跳转会让"为什么点不进去"变成一个说不清的问题。
+    """
     report, filters = _build_report(request)
     context = _filter_context(request, filters, report["warnings"])
     context.update({
@@ -111,9 +121,9 @@ def report_page(request):
     return render(request, "reports/report_page.html", context)
 
 
-@login_required_view
+@admin_required
 def export_xlsx(request):
-    """导出 XLSX（三张工作表）。
+    """导出 XLSX（三张工作表，仅社团管理员）。
 
     与页面共用 `_build_report` —— 这是"口径一致"的实现保证：
     页面看到什么，导出就是什么，不存在两套查询。

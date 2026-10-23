@@ -22,6 +22,7 @@ from .models import Competition, CompetitionStatus, ReviewerAssignment
 from .permissions import (
     can_manage_competition,
     can_manage_reviewers,
+    can_review_competition,
     can_view_competition,
     reviewer_assignments_for,
     visible_competitions_for,
@@ -144,6 +145,21 @@ def competition_detail(request, pk):
             "assignments", filter=Q(assignments__is_active=True), distinct=True))
         .order_by("id")
     )
+
+    # 任务可见性：只有被分配到该任务的干事才能看到它。
+    #
+    # 为什么要在查询层过滤而不是模板里判断：
+    #   模板过滤意味着"数据已经查出来了，只是没显示"，
+    #   一旦有人改模板或加了导出，别人任务的内容就会泄露。
+    #   这里直接从查询里排除，看不到的任务根本不出现在内存中。
+    #
+    # 管理员不受限（他要配置与检查全部任务）；被授权审核本场比赛的人
+    # 也需要看到本场任务，否则无法判断提交是否符合要求。
+    if not can_manage and not can_review_competition(request.user, competition):
+        tasks = tasks.filter(
+            assignments__member=request.user,
+            assignments__is_active=True,
+        ).distinct()
 
     context = {
         "competition": competition,

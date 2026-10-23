@@ -171,53 +171,70 @@ class TestExportResponse:
 
 @pytest.mark.django_db
 class TestReportPermissions:
+    """报表权限 —— P6 规则变更。
 
-    def test_member_sees_only_own_records(self, rich_dataset, p3_member,
-                                          report_client):
-        """干事导出只含自己的记录 —— 查询层面隔离，不靠模板过滤。"""
+    原规则：登录即可访问报表，干事的可见范围由权限层收窄（只看自己）。
+    新规则：报表**仅社团管理员**可访问（@admin_required）。
+
+    变更原因（业务侧）：干事看自己的记录去「我的工作记录」就够，
+    报表的筛选与汇总天然是管理视角；入口对干事只会造成困惑。
+
+    因此原来这三条"干事能看到自己的记录"的断言前提失效，
+    改写为验证**权限已收紧且不泄露任何数据** —— 断言强度没有降低：
+    原来守的是"干事拿不到别人的数据"，现在守的是"干事一条都拿不到"。
+    """
+
+    def test_member_denied_report_page(self, rich_dataset, p3_member,
+                                       report_client):
+        """干事访问报表页面必须被拒绝（403），而不是"能打开但只看自己"。"""
         client = report_client.as_(p3_member)
-        data = client.get(reverse("reports:export")).content
-        wb = load_workbook(io.BytesIO(data))
+        resp = client.get(reverse("reports:page"))
+        assert resp.status_code == 403, (
+            "报表已收紧为仅管理员，干事应得到 403，实际 %s" % resp.status_code)
 
-        by_member, _ = _sheet_rows(wb, "按人员汇总", "学号")
-        assert {r["学号"] for r in by_member} == {p3_member.student_id}
-
-        details, _ = _sheet_rows(wb, "工作记录明细", "记录编号")
-        assert {r["学号"] for r in details} == {p3_member.student_id}
+    def test_member_denied_export(self, rich_dataset, p3_member, report_client):
+        """干事导出 Excel 同样必须被拒绝，不能靠"页面藏起来"来防护。"""
+        client = report_client.as_(p3_member)
+        resp = client.get(reverse("reports:export"))
+        assert resp.status_code == 403, (
+            "导出接口必须与页面同样受限，实际 %s" % resp.status_code)
 
     def test_member_cannot_see_others_via_filter(self, rich_dataset, p3_member,
                                                  p3_member2, report_client):
-        """干事显式筛他人 → 不应拿到别人的数据。"""
+        """干事带筛选参数也无法越权导出（参数不构成绕过权限的通道）。"""
         client = report_client.as_(p3_member)
-        data = client.get(reverse("reports:export"),
-                          {"member": p3_member2.pk}).content
-        wb = load_workbook(io.BytesIO(data))
-        details, _ = _sheet_rows(wb, "工作记录明细", "记录编号")
-        assert details == [], "不应通过 member 参数看到他人工件记录"
+        resp = client.get(reverse("reports:export"),
+                          {"member": p3_member2.pk})
+        assert resp.status_code == 403
 
     def test_member_cannot_see_others_competition(self, rich_dataset, p3_member,
                                                   p3_member2, report_client):
-        """同样地，通过比赛参数也不能越权。"""
+        """通过比赛参数同样不能绕过。"""
         client = report_client.as_(p3_member)
-        data = client.get(reverse("reports:export"),
-                          {"competition": rich_dataset["competition"].pk}).content
-        wb = load_workbook(io.BytesIO(data))
-        details, _ = _sheet_rows(wb, "工作记录明细", "记录编号")
-        # 干事能看到自己被授权范围内的记录，但不应出现他人学号
-        assert {r["学号"] for r in details} <= {p3_member.student_id}
+        resp = client.get(reverse("reports:export"),
+                          {"competition": rich_dataset["competition"].pk})
+        assert resp.status_code == 403
 
-    def test_reviewer_sees_authorized_competition(self, rich_dataset, p3_admin,
-                                                  p3_member, p3_member2,
-                                                  report_client):
-        """被授权的审核人能看到的范围由权限层决定（不在此处放宽）。"""
+    def test_reviewer_denied_report(self, rich_dataset, p3_member, p3_admin,
+                                    report_client):
+        """被授权审核的人也不看报表 —— 审核与统计是两件事。"""
+        client = report_client.as_(p3_member)
+        assert client.get(reverse("reports:page")).status_code == 403
+
+    def test_admin_still_sees_all(self, rich_dataset, p3_admin, p3_member,
+                                  p3_member2, report_client):
+        """管理员不受影响，仍能看到全部成员的数据。"""
         from reports.filters import ReportFilters
         from reports import statistics
 
         rows = statistics.by_member(p3_admin, ReportFilters())
         sids = {r["student_id"] for r in rows}
-        # 管理员看全部（visible_submissions_for 对管理员返回 all）
         assert p3_member.student_id in sids
         assert p3_member2.student_id in sids
+
+        client = report_client.as_(p3_admin)
+        assert client.get(reverse("reports:page")).status_code == 200
+        assert client.get(reverse("reports:export")).status_code == 200
 
 
 # ===========================================================================

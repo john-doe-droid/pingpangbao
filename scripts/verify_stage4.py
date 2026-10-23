@@ -649,6 +649,24 @@ def check_previous_files_not_rewritten():
             "（否则 P4 合法新增的 reports/ 会被误判为 P3 越界）。",
     }
 
+    # P6 登记的有意改动（逐项给出理由；不在列表内的改动仍判失败）。
+    P6_CHANGED = {
+        "accounts/views.py":
+            "P6：登录成功后写 session 标记，用于「登录后弹一次使用说明」。"
+            "只新增一行 session 写入，认证逻辑、首登强制改密分支、"
+            "登录 IP 记录均未改动（另有专项复核）。",
+        "competitions/views.py":
+            "P6 规则变更：比赛详情的任务列表改为按分配过滤 —— "
+            "非管理员且非本场审核人时，只显示分配给本人的任务"
+            "（原来会把该比赛下所有任务都列出来）。"
+            "can_view_competition 的草稿保护未变（另有专项复核）。",
+        "tasks/views.py":
+            "P6：my_tasks / my_task_detail 增加「已交 / 上限」额度计算，"
+            "供干事直接提交使用。"
+            "数据范围仍严格来自 assignments_for_member（"
+            "查询层限定，未放宽，另有专项复核）。",
+    }
+
     baseline = BASE_DIR / "scripts" / "p4_baseline.json"
     if not baseline.exists():
         record("P1/P2/P3 既有文件未被覆盖", SKIP, "未找到 P4 基线文件")
@@ -657,7 +675,7 @@ def check_previous_files_not_rewritten():
     data = json.loads(baseline.read_text(encoding="utf-8"))
     changed, missing = [], []
     for rel, expect in data["files"].items():
-        if rel in APPEND_OK or rel in FUNC_GUARDED or rel in P5_CHANGED:
+        if rel in APPEND_OK or rel in FUNC_GUARDED or rel in P5_CHANGED or rel in P6_CHANGED:
             continue
         path = BASE_DIR / rel.replace("/", os.sep)
         if not path.exists():
@@ -749,10 +767,57 @@ def check_previous_files_not_rewritten():
             return
         notes.append("storage.py 安全不变量（签名过期/服务端生成键/路径穿越/fail-closed）复核通过")
 
-    plain = len(data["files"]) - len(APPEND_OK) - len(FUNC_GUARDED) - len(P5_CHANGED)
+    # P6 登记改动同样要逐项复核不变量
+    p6_missing = []
+
+    # 1) 干事端数据范围仍必须在查询层限定，不能改成模板过滤
+    tasks_views = BASE_DIR / "tasks" / "views.py"
+    if tasks_views.exists():
+        tsrc = tasks_views.read_text(encoding="utf-8")
+        if "assignments_for_member" not in tsrc:
+            p6_missing.append("tasks/views.py 不再使用 assignments_for_member（范围限定可能被放宽）")
+
+    # 2) 比赛详情的任务过滤：必须保留"非管理员/非审核人只看自己"的分支
+    comp_views = BASE_DIR / "competitions" / "views.py"
+    if comp_views.exists():
+        csrc = comp_views.read_text(encoding="utf-8")
+        if "assignments__member=request.user" not in csrc:
+            p6_missing.append("competitions/views.py 缺少按分配过滤任务的分支")
+        if "can_view_competition" not in csrc:
+            p6_missing.append("competitions/views.py 的草稿可见性校验疑似丢失")
+
+    # 3) 报表收紧：两个视图都必须挂 admin_required
+    rep_views = BASE_DIR / "reports" / "views.py"
+    if rep_views.exists():
+        rsrc = rep_views.read_text(encoding="utf-8")
+        if rsrc.count("@admin_required") < 2:
+            p6_missing.append("reports/views.py 的报表/导出未同时收紧为管理员")
+        if "login_required_view" in rsrc:
+            p6_missing.append("reports/views.py 仍残留 login_required_view（权限未收紧）")
+
+    # 4) 认证逻辑未被改写：首登强制改密分支必须还在
+    acc_views = BASE_DIR / "accounts" / "views.py"
+    if acc_views.exists():
+        asrc = acc_views.read_text(encoding="utf-8")
+        if "must_change_password" not in asrc:
+            p6_missing.append("accounts/views.py 的首登强制改密分支疑似丢失")
+        if "authentication_form" not in asrc:
+            p6_missing.append("accounts/views.py 的认证表单绑定疑似丢失")
+
+    if p6_missing:
+        record("P1/P2/P3 既有文件未被覆盖", FAIL,
+               "P6 登记改动的安全不变量被破坏：%s" % "、".join(p6_missing))
+        return
+    notes.append(
+        "P6 登记改动不变量复核通过"
+        "（任务范围查询层限定 / 比赛任务按分配过滤 / 报表仅管理员 / 认证逻辑未动）")
+
+    plain = (len(data["files"]) - len(APPEND_OK) - len(FUNC_GUARDED)
+             - len(P5_CHANGED) - len(P6_CHANGED))
     record("P1/P2/P3 既有文件未被覆盖", PASS,
-           "%d 个文件哈希一致 + %s（P5 登记改动 %d 处，已注明理由并复核不变量）"
-           % (plain, "；".join(notes), len(P5_CHANGED)))
+           "%d 个文件哈希一致 + %s（P5 登记改动 %d 处、P6 登记改动 %d 处，"
+           "均已注明理由并复核不变量）"
+           % (plain, "；".join(notes), len(P5_CHANGED), len(P6_CHANGED)))
 
 
 def check_agent_loop_untouched():

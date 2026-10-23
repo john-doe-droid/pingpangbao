@@ -72,7 +72,8 @@ async function login(ctx, user) {
     const { page } = await login(ctx, 'D-MEMBER1');
 
     // 提交表单：必填图片但不上传，制造校验失败
-    await page.goto(BASE + '/my/submissions/', { waitUntil: 'networkidle' });
+    // P6 起提交入口在「我的任务」（「我的工作记录」只留历史）
+    await page.goto(BASE + '/my/tasks/', { waitUntil: 'networkidle' });
     const submitLink = await page.$('a[href*="/my/submissions/new/"]');
     if (!submitLink) {
       bad('表单校验', '找不到可提交的任务入口（数据可能已用尽）');
@@ -106,7 +107,7 @@ async function login(ctx, user) {
   {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const { page } = await login(ctx, 'D-MEMBER1');
-    await page.goto(BASE + '/my/submissions/', { waitUntil: 'networkidle' });
+    await page.goto(BASE + '/my/tasks/', { waitUntil: 'networkidle' });
     // 注意：任务的材料要求不同，有的任务只要"链接"、没有图片字段。
     // 逐个打开可提交任务，找到真正带图片字段的那个再断言（否则会误判为缺陷）。
     const newLinks = await page.$$eval('a',
@@ -160,7 +161,27 @@ async function login(ctx, user) {
     if (!recHref) {
       bad('审核队列可进入', '找不到待审记录（可能已审核完）');
     } else {
-      await page.goto(BASE + recHref, { waitUntil: 'networkidle' });
+      // 队列页里从「待审核」表格取首条；但要注意：审核人不能审自己提交的记录，
+      // 自己的那条点开会正常地不显示审核表单（业务规则），
+      // 因此这里显式排除"提交人是我"的行，否则会把规则正确当成缺陷。
+      const ownName = await page.evaluate(() => {
+        const n = document.querySelector('.pp-user__name');
+        return n ? n.textContent.trim() : '';
+      });
+      const pick = await page.evaluate((ownName) => {
+        const rows = [...document.querySelectorAll('table tbody tr')];
+        for (const r of rows) {
+          if (ownName && r.innerText.includes(ownName)) continue;
+          const a = r.querySelector('a[href*="/review/"]');
+          if (a) return a.getAttribute('href');
+        }
+        return null;
+      }, ownName);
+
+      if (!pick) {
+        bad('审核动作选项存在', '没有可审核的他人记录（数据不足）');
+      } else {
+      await page.goto(BASE + pick, { waitUntil: 'networkidle' });
       const radios = await page.$$('input[type="radio"][name="action"]');
       if (radios.length >= 2) ok('审核动作选项存在', `${radios.length} 个选项`);
       else bad('审核动作选项存在', `只有 ${radios.length} 个`);
@@ -176,6 +197,7 @@ async function login(ctx, user) {
         ok('审核选项有文字标签', labels.join(' / '));
       } else {
         bad('审核选项有文字标签', JSON.stringify(labels));
+      }
       }
     }
     await ctx.close();

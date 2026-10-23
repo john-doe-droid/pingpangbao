@@ -6,6 +6,7 @@
 用法：python scripts/check_templates.py
 """
 import glob
+import re
 import os
 import sys
 from pathlib import Path
@@ -35,18 +36,33 @@ def main() -> int:
     )
 
     bad = []
+    lint = []
     for f in files:
         rel = to_template_name(f)
+        src = Path(f).read_text(encoding="utf-8")
+
+        # 多行 {# #} 是**静默**故障源：Django 的 {# #} 只支持单行，
+        # 多写一行就会把后续内容当正文输出，破坏 HTML 结构且不报错。
+        # 本项目已因此踩坑两次，所以在这里做成硬性检查。
+        for m in re.finditer(r"\{#(?:(?!#\}).)*?\n(?:(?!#\}).)*?#\}", src, re.S):
+            line = src[: m.start()].count("\n") + 1
+            lint.append((rel, line, m.group(0)[:60].replace("\n", " / ")))
+
         try:
             get_template(rel)
         except Exception as exc:  # noqa: BLE001
             bad.append((rel, type(exc).__name__, str(exc)[:160]))
 
+    for rel, line, snippet in lint:
+        print("❌ %s:%d 多行 {# #} 注释 —— 请改用 comment 块" % (rel, line))
+        print("     %s" % snippet)
     for rel, kind, msg in bad:
         print("❌ %-52s %s: %s" % (rel, kind, msg))
+
     print()
-    print("检查 %d 个模板，语法错误 %d 个" % (len(files), len(bad)))
-    return 1 if bad else 0
+    print("检查 %d 个模板：语法错误 %d 个，多行注释 %d 处"
+          % (len(files), len(bad), len(lint)))
+    return 1 if (bad or lint) else 0
 
 
 if __name__ == "__main__":

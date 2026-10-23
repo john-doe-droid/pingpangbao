@@ -1622,12 +1622,31 @@ select[multiple].form-select option:checked {
 
 /* 登录页：表单在剩余空间里垂直居中，避免重心过高、下方大片空白。
    用 main 上的 flex 而不是固定 margin —— 不同视口高度都能自适应。 */
+/* 登录/改密页：内容在剩余空间里垂直居中。
+   注意两个必需条件，缺一个输入框就会被压成 0 宽：
+     · 容器要 flex: 1 撑开（否则 flex 子项按内容宽度收缩）；
+     · 内层 .container 要有明确宽度基准（Bootstrap 的 .container 是
+       max-width + auto 外边距，在 flex 里会先塌陷再被撑开）。 */
+/* 登录/改密页：内容在剩余空间里垂直居中。
+   踩过的坑：body 是 d-flex flex-column，main 作为 flex 子项在
+   align-items: center 下会按内容宽度收缩；一旦内容本身是"宽度自适应"，
+   整条链会一路塌成 0 宽（输入框变成 0×0，肉眼看不见）。
+   因此这里显式给 main 与内层容器 width: 100%。 */
 .pp-main--auth {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
-.pp-main--auth .pp-container { width: 100%; }
+.pp-main--auth > .container {
+  width: 100%;
+}
+/* 登录/改密页要保持窄栏（约 400px），不能被上面的 width:100% 撑满。
+   用 :where() 降低特异性以外，这里直接给出明确的 max-width 更直白。 */
+.pp-main--auth > .container.pp-container--auth {
+  max-width: 400px;
+}
 
 /* 内容区最小高度：单行列表页也不会在页脚前留下大片死白 */
 .pp-container { min-height: 60vh; }
@@ -1638,3 +1657,47 @@ select[multiple].form-select option:checked {
 /* 长内容容器：详情页限制行宽，避免中文行长过长影响阅读 */
 .pp-container--narrow .pp-version__text,
 .pp-container--narrow .pp-list__desc { max-width: 62ch; }
+
+/* --------------------------------------------------------------------------
+   29. 登录后使用说明对话框
+   用原生 <dialog>：Esc 与焦点约束由浏览器负责，不额外引入 JS 库。
+   -------------------------------------------------------------------------- */
+.pp-welcome {
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  padding: 0;
+  max-width: 460px;
+  width: calc(100% - 32px);
+  box-shadow: var(--pp-shadow-2);
+  color: var(--pp-text);
+}
+.pp-welcome::backdrop {
+  background: rgba(32, 33, 36, 0.42);
+}
+.pp-welcome__body { padding: var(--pp-space-5); }
+.pp-welcome__title {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0 0 var(--pp-space-3);
+  line-height: 1.4;
+}
+.pp-welcome__list {
+  margin: 0;
+  padding-left: 1.15em;
+  font-size: var(--pp-fs-body);
+  line-height: 1.6;
+  color: var(--pp-text);
+}
+.pp-welcome__list li + li { margin-top: var(--pp-space-2); }
+.pp-welcome__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--pp-space-5);
+  padding-top: var(--pp-space-4);
+  border-top: 1px solid var(--pp-border);
+}
+@media (max-width: 575.98px) {
+  .pp-welcome { max-width: none; width: calc(100% - 24px); margin: 12px; }
+  .pp-welcome__body { padding: var(--pp-space-4); }
+  .pp-welcome__actions .btn { width: 100%; }
+}

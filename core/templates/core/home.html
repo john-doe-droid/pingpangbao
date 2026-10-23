@@ -8,13 +8,9 @@
   <div class="pp-page-header">
     <div class="pp-page-header__main">
       <h1 class="pp-page-title">工作台</h1>
-      <p class="pp-page-header__desc">
-        选择下面任一入口开始工作。你只会看到与自己相关的数据。
-      </p>
     </div>
   </div>
 
-  {# ---------- 入口 ---------- #}
   <div class="pp-surface">
     <div class="pp-surface__header">
       <h2 class="pp-section-title">从哪里开始</h2>
@@ -34,7 +30,7 @@
         {% endfor %}
       </div>
 
-      {# 运维类入口只给超级管理员：普通干事不需要"服务状态"这类信息 #}
+      {# 运维类入口只给超级管理员：普通成员不需要"服务状态"这类信息 #}
       {% if user.is_superuser %}
         <div class="pp-home-links">
           <a href="/admin/">后台管理</a>
@@ -42,25 +38,6 @@
         </div>
       {% endif %}
     </div>
-  </div>
-
-  {# ---------- 能力说明 ----------
-     checks 里前两条（工程底座 / 用户与角色）是面向管理员的实现说明，
-     对普通干事没有意义，因此只在管理员视图里显示。 #}
-  <div class="pp-surface">
-    <div class="pp-surface__header">
-      <h2 class="pp-section-title">系统能做什么</h2>
-    </div>
-    <ul class="pp-list">
-      {% for item in checks %}
-        {% if user.is_superuser or item.name != '工程底座' and item.name != '用户与角色' %}
-          <li class="pp-list__item">
-            <span class="pp-list__name">{{ item.name }}</span>
-            <span class="pp-list__desc">{{ item.desc }}</span>
-          </li>
-        {% endif %}
-      {% endfor %}
-    </ul>
   </div>
 
 </div>

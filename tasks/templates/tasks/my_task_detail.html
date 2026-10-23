@@ -113,23 +113,32 @@
     {% endif %}
   </div>
 
-  {# ---------- 提交入口 ----------
-     提交功能位于「我的工作记录」：那里按任务列出剩余额度与提交按钮，
-     避免同一动作在两个地方各有一个入口、状态却可能不一致。 #}
+  {% comment %}
+      提交入口：提交按钮就在本页，干事看完要求可以直接交，
+      不用回列表再点一次。「我的工作记录」只用于回看历史与退回意见。
+    {% endcomment %}
   <div class="pp-surface">
     <div class="pp-surface__body">
       <h2 class="pp-section-title" style="margin-bottom: var(--pp-space-2);">提交工作成果</h2>
       {% if is_admin_view %}
         <p class="pp-meta mb-0">
-          该任务未分配给你本人，无法提交。若需要代为处理，请调整人员分配。
+          该任务未分配给你本人，无法代为提交。如需调整，请到「管理分配」里指定人员。
         </p>
       {% else %}
         <p class="pp-meta">
-          提交入口在「我的工作记录」页，那里会显示每个任务已提交的份数与剩余额度。
+          已提交 {{ used }} / {{ limit }} 条。
+          {% if remaining %}
+            还可以提交 {{ remaining }} 条。
+          {% else %}
+            已达上限，不能再提交新记录；若记录被退回，修改后重提不占新增次数。
+          {% endif %}
         </p>
-        <a class="btn btn-primary" href="{% url 'submissions:my_submissions' %}">
-          前往我的工作记录
-        </a>
+        {% if remaining %}
+          <a class="btn btn-primary" href="{% url 'submissions:submit_new' task.pk %}">提交成果</a>
+        {% else %}
+          <a class="btn btn-outline-secondary"
+             href="{% url 'submissions:my_submissions' %}">查看我的记录</a>
+        {% endif %}
       {% endif %}
     </div>
   </div>

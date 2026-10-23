@@ -198,19 +198,28 @@
       </div>
     {% else %}
       <div class="pp-empty" style="padding: var(--pp-space-6) var(--pp-space-4);">
-        <p class="pp-empty__title">这场比赛还没有任务</p>
-        <p class="pp-empty__desc">
-          {% if competition.is_draft %}
-            先点击上方「开始进行」，然后才能从模板添加任务。
-          {% elif competition.is_archived %}
-            比赛已归档，不能新增任务。
-          {% else %}
-            从模板添加任务后，才能把任务分配给干事。
+        {% if can_manage %}
+          <p class="pp-empty__title">这场比赛还没有任务</p>
+          <p class="pp-empty__desc">
+            {% if competition.is_draft %}
+              先点击上方「开始进行」，然后才能从模板添加任务。
+            {% elif competition.is_archived %}
+              比赛已归档，不能新增任务。
+            {% else %}
+              从模板添加任务后，才能把任务分配给成员。
+            {% endif %}
+          </p>
+          {% if can_configure_tasks %}
+            <a class="btn btn-primary"
+               href="{% url 'tasks_admin:task_create' competition.pk %}">从模板添加任务</a>
           {% endif %}
-        </p>
-        {% if can_configure_tasks %}
-          <a class="btn btn-primary"
-             href="{% url 'tasks_admin:task_create' competition.pk %}">从模板添加任务</a>
+        {% else %}
+          {# 干事看不到别人的任务，因此"没有任务"是常态，要解释清楚为什么空 #}
+          <p class="pp-empty__title">这场比赛没有分配给你的任务</p>
+          <p class="pp-empty__desc">
+            你只会看到分配给自己的任务。要参与这场比赛，请联系社团管理员安排。
+          </p>
+          <a class="btn btn-outline-secondary" href="{% url 'tasks:my_tasks' %}">查看我的任务</a>
         {% endif %}
       </div>
     {% endif %}

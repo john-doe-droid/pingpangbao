@@ -36,6 +36,13 @@ class StudentLoginView(LoginView):
                 "这是您首次登录，请先修改初始密码后再继续使用。",
             )
             return redirect("accounts:password_change")
+
+        # 登录后弹一次使用说明（按身份给不同内容）。
+        #
+        # 用 session 标记而不是数据库字段：这是纯展示状态，
+        # "关掉浏览器再登录"确实应该再看到一次；
+        # 也不该为了它给用户表加字段、写迁移。
+        self.request.session["show_welcome"] = True
         return response
 
     @staticmethod

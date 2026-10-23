@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-20 21:39:36",
+  "generated_at": "2026-10-24 06:54:55",
   "python": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社\\.venv\\Scripts\\python.exe",
   "project_dir": "C:\\Users\\刘晨阳\\Desktop\\乒乓球社",
   "summary": {
@@ -66,37 +66,37 @@
     {
       "name": "P4 测试全部通过",
       "status": "PASS",
-      "detail": "47 passed in 77.11s (0:01:17)"
+      "detail": "49 passed in 70.40s (0:01:10)"
     },
     {
       "name": "P1 回归测试未退化",
       "status": "PASS",
-      "detail": "52 passed in 24.88s"
+      "detail": "52 passed in 12.68s"
     },
     {
       "name": "P2 回归测试未退化",
       "status": "PASS",
-      "detail": "141 passed in 110.56s (0:01:50)"
+      "detail": "141 passed in 54.10s"
     },
     {
       "name": "P3 回归测试未退化",
       "status": "PASS",
-      "detail": "124 passed in 81.13s (0:01:21)"
+      "detail": "124 passed in 56.30s"
     },
     {
       "name": "PostgreSQL 专项测试",
       "status": "PASS",
-      "detail": "8 passed, 356 deselected in 2.98s"
+      "detail": "8 passed, 358 deselected in 1.79s"
     },
     {
       "name": "全套测试通过",
       "status": "PASS",
-      "detail": "364 passed in 315.97s (0:05:15)"
+      "detail": "366 passed in 180.58s (0:03:00)"
     },
     {
       "name": "P1/P2/P3 既有文件未被覆盖",
       "status": "PASS",
-      "detail": "39 个文件哈希一致 + core/views.py 的 live/ready 逐字未变；storage.py 安全不变量（签名过期/服务端生成键/路径穿越/fail-closed）复核通过（P5 登记改动 2 处，已注明理由并复核不变量）"
+      "detail": "36 个文件哈希一致 + core/views.py 的 live/ready 逐字未变；storage.py 安全不变量（签名过期/服务端生成键/路径穿越/fail-closed）复核通过；P6 登记改动不变量复核通过（任务范围查询层限定 / 比赛任务按分配过滤 / 报表仅管理员 / 认证逻辑未动）（P5 登记改动 2 处、P6 登记改动 3 处，均已注明理由并复核不变量）"
     },
     {
       "name": "agent-loop 护栏未被修改",

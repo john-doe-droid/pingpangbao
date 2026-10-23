@@ -77,24 +77,30 @@
           {% endcomment %}
           <a class="pp-nav__link {% if "/review" in p %}is-active{% endif %}"
              href="{% url 'submissions:review_queue' %}"
-             {% if "/review" in p %}aria-current="page"{% endif %}>审核队列</a>
+             {% if "/review" in p %}aria-current="page"{% endif %}>审核</a>
 
-          {# --- 统计报表（所有人可用，可见范围由后端权限决定）--- #}
-          <a class="pp-nav__link {% if p|slice:":9" == "/reports/" %}is-active{% endif %}"
-             href="{% url 'reports:page' %}"
-             {% if p|slice:":9" == "/reports/" %}aria-current="page"{% endif %}>统计报表</a>
+          {% comment %}
+              统计报表：仅社团管理员。后端 reports 视图本身是 admin_required，
+              这里只是不显示无用入口，不依赖它来做权限。
+            {% endcomment %}
+          {% if user.is_superuser or 'club_admin' in user.role_codes %}
+            <a class="pp-nav__link {% if p|slice:":9" == "/reports/" %}is-active{% endif %}"
+               href="{% url 'reports:page' %}"
+               {% if p|slice:":9" == "/reports/" %}aria-current="page"{% endif %}>统计报表</a>
+          {% endif %}
 
           {# --- 管理配置（仅社团管理员）--- #}
           {% if user.is_superuser or 'club_admin' in user.role_codes %}
             <a class="pp-nav__link {% if p|slice:":20" == "/manage/submissions/" %}is-active{% endif %}"
                href="{% url 'submissions_admin:list' %}"
                {% if p|slice:":20" == "/manage/submissions/" %}aria-current="page"{% endif %}>记录管理</a>
-            <a class="pp-nav__link {% if "/manage/tasks/templates" in p %}is-active{% endif %}"
+            {% comment %}
+              任务模板与工作类型合并为一处入口：工作类型是模板的依赖项，
+              独立成顶级菜单只会让导航更长，实际使用中几乎总是一起看。
+            {% endcomment %}
+            <a class="pp-nav__link {% if "/manage/tasks/" in p %}is-active{% endif %}"
                href="{% url 'tasks_admin:template_list' %}"
-               {% if "/manage/tasks/templates" in p %}aria-current="page"{% endif %}>任务模板</a>
-            <a class="pp-nav__link {% if "/manage/tasks/worktypes" in p %}is-active{% endif %}"
-               href="{% url 'tasks_admin:worktype_list' %}"
-               {% if "/manage/tasks/worktypes" in p %}aria-current="page"{% endif %}>工作类型</a>
+               {% if "/manage/tasks/" in p %}aria-current="page"{% endif %}>任务模板</a>
           {% endif %}
 
           {# --- 移动端才显示的用户区（桌面端隐藏）--- #}
@@ -140,6 +146,43 @@
     </div>
   </header>
   {% endwith %}
+
+  {% comment %}
+    登录后使用说明（只弹一次）
+
+    用原生 dialog：无需额外 JS 库，键盘可达（Esc 关闭、焦点被约束在
+    对话框内）是浏览器原生行为。标记由 welcome_tour 上下文处理器提供，
+    读取后即被清掉，因此只在登录后的第一个页面出现一次。
+
+    注意：本段的说明必须写在 comment 块里，不能用多行花括号井号注释 ——
+    Django 的那种注释只支持单行，多行会把后续内容当成正文输出，
+    静默破坏 HTML 结构（本项目已踩过两次）。
+  {% endcomment %}
+  {% if welcome_tour %}
+    <dialog class="pp-welcome" id="ppWelcome" aria-labelledby="ppWelcomeTitle">
+      <div class="pp-welcome__body">
+        <h2 class="pp-welcome__title" id="ppWelcomeTitle">{{ welcome_tour.title }}</h2>
+        <ul class="pp-welcome__list">
+          {% for item in welcome_tour.items %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+        <div class="pp-welcome__actions">
+          <button type="button" class="btn btn-primary" id="ppWelcomeOk">知道了</button>
+        </div>
+      </div>
+    </dialog>
+    <script>
+      (function () {
+        var dlg = document.getElementById('ppWelcome');
+        if (!dlg || typeof dlg.showModal !== 'function') return;
+        dlg.showModal();
+        document.getElementById('ppWelcomeOk').addEventListener('click', function () {
+          dlg.close();
+        });
+      })();
+    </script>
+  {% endif %}
 
   {# ===================== 消息提示 ===================== #}
   {% if messages %}

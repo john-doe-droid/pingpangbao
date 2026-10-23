@@ -86,10 +86,11 @@
           <strong>必填必然意味着允许</strong>，否则保存时会被拒绝。
         </p>
 
-        {#
+        {% comment %}
           每个复选框都用 <label> 明确关联（视觉上保持表格，语义上可被读屏识别）——
-          原实现只有列标题、没有逐项标签，屏幕阅读器无法分辨"这个框是哪类材料的哪一项"。
-        #}
+          原实现只有列标题、没有逐项标签，屏幕阅读器无法分辨
+          "这个框是哪类材料的哪一项"。
+        {% endcomment %}
         <div class="table-responsive">
           <table class="table pp-table-stack align-middle">
             <thead>

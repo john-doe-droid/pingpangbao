@@ -9,35 +9,23 @@
     <div class="pp-page-header__main">
       <h1 class="pp-page-title">我的任务</h1>
       <p class="pp-page-header__desc">
-        只显示分配给{{ user.get_short_name }}的任务。
-        {% if overdue_count %}
-          其中 {{ overdue_count }} 项已逾期，逾期后仍可提交，但记录会被标记。
-        {% endif %}
+        这里只显示分配给你的任务。做完直接点「提交成果」。
+        {% if overdue_count %}其中 {{ overdue_count }} 项已逾期，逾期仍可提交，但会被标记。{% endif %}
       </p>
-    </div>
-    <div class="pp-page-header__actions">
-      <a class="btn btn-outline-secondary" href="{% url 'submissions:my_submissions' %}">
-        我的工作记录
-      </a>
     </div>
   </div>
 
   {% if rows %}
     <div class="pp-surface">
-      <div class="pp-surface__header">
-        <h2 class="pp-section-title">任务列表</h2>
-        <span class="pp-meta">共 {{ total }} 项</span>
-      </div>
       <div class="pp-surface__body pp-surface__body--flush">
         <div class="table-responsive">
           <table class="table pp-table-stack align-middle">
-            <caption class="visually-hidden">我的任务列表，共 {{ total }} 项</caption>
+            <caption class="visually-hidden">我的任务，共 {{ total }} 项</caption>
             <thead>
               <tr>
                 <th scope="col">任务</th>
-                <th scope="col">比赛</th>
-                <th scope="col" class="d-none d-md-table-cell">工作类型</th>
                 <th scope="col">截止时间</th>
+                <th scope="col" class="pp-num">已交 / 上限</th>
                 <th scope="col" class="pp-num">状态</th>
                 <th scope="col" class="pp-num">操作</th>
               </tr>
@@ -49,32 +37,38 @@
                     <a class="pp-cell-primary" href="{% url 'tasks:my_task_detail' row.task.pk %}">
                       {{ row.task.name }}
                     </a>
-                    {% if row.task.description %}
-                      <div class="pp-cell-sub">{{ row.task.description|truncatechars:60 }}</div>
-                    {% endif %}
-                  </td>
-                  <td data-label="比赛">
-                    {{ row.competition.name }}
-                    <div class="pp-cell-sub">{{ row.competition.event_date|date:"Y-m-d" }}</div>
-                  </td>
-                  <td class="d-none d-md-table-cell" data-label="工作类型">
-                    {{ row.task.work_type.name }}
+                    <div class="pp-cell-sub">
+                      {{ row.competition.name }} · {{ row.task.work_type.name }}
+                    </div>
                   </td>
                   <td data-label="截止时间">
                     {{ row.effective_deadline|date:"Y-m-d H:i" }}
+                  </td>
+                  <td class="pp-num" data-label="已交 / 上限">
+                    {{ row.used }} / {{ row.limit }}
                   </td>
                   <td class="pp-num" data-label="状态">
                     {% if row.is_overdue %}
                       <span class="pp-status pp-status--danger">
                         <span class="pp-status__mark" aria-hidden="true"></span>已逾期</span>
-                    {% else %}
+                    {% elif row.remaining %}
                       <span class="pp-status pp-status--success">
-                        <span class="pp-status__mark" aria-hidden="true"></span>进行中</span>
+                        <span class="pp-status__mark" aria-hidden="true"></span>待完成</span>
+                    {% else %}
+                      <span class="pp-status pp-status--neutral">
+                        <span class="pp-status__mark" aria-hidden="true"></span>已提交</span>
                     {% endif %}
                   </td>
                   <td class="pp-num pp-cell-actions" data-label="操作">
-                    <a class="btn btn-sm btn-outline-secondary"
-                       href="{% url 'tasks:my_task_detail' row.task.pk %}">查看详情</a>
+                    <div class="pp-inline-actions" style="justify-content: flex-end;">
+                      {% if row.remaining %}
+                        <a class="btn btn-sm btn-primary"
+                           href="{% url 'submissions:submit_new' row.task.pk %}">提交成果</a>
+                      {% else %}
+                        <a class="btn btn-sm btn-outline-secondary"
+                           href="{% url 'submissions:my_submissions' %}">查看记录</a>
+                      {% endif %}
+                    </div>
                   </td>
                 </tr>
               {% endfor %}
@@ -82,14 +76,18 @@
           </table>
         </div>
       </div>
+      <div class="pp-surface__footer">
+        达到上限后不能再提交新的记录；若记录被退回，修改后重新提交不占新增次数。
+      </div>
     </div>
   {% else %}
     <div class="pp-surface">
       <div class="pp-empty">
         <p class="pp-empty__title">目前没有分配给你的任务</p>
         <p class="pp-empty__desc">
-          任务由社团管理员分配。如果你认为应该有任务，请联系管理员确认分配情况。
+          任务由社团管理员分配。如果你认为应该有任务，请联系管理员确认。
         </p>
+        <a class="btn btn-outline-secondary" href="{% url 'competitions:list' %}">看看在办哪些比赛</a>
       </div>
     </div>
   {% endif %}
