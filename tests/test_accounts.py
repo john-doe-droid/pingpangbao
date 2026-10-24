@@ -18,13 +18,13 @@ def test_user_model_is_custom():
     assert User is not DjangoDefaultUser
 
 
-def test_username_field_is_student_id():
-    assert User.USERNAME_FIELD == "student_id"
+def test_username_field_is_account():
+    assert User.USERNAME_FIELD == "account"
 
 
 def test_create_user_hashes_password(db, plain_password):
     """密码必须以哈希形式存储，绝不出现明文。"""
-    user = User.objects.create_user(student_id="2025317020104", password=plain_password)
+    user = User.objects.create_user(account="2025317020104", password=plain_password)
 
     assert user.password != plain_password
     assert user.password.startswith("pbkdf2_"), "应使用 Django 的 PBKDF2 哈希"
@@ -32,15 +32,15 @@ def test_create_user_hashes_password(db, plain_password):
     assert user.check_password("wrong-password") is False
 
 
-def test_create_user_requires_student_id(db):
+def test_create_user_requires_account(db):
     with pytest.raises(ValueError):
-        User.objects.create_user(student_id="", password="x")
+        User.objects.create_user(account="", password="x")
 
 
-def test_student_id_is_unique(db, make_user):
-    make_user(student_id="2025317020104")
+def test_account_is_unique(db, make_user):
+    make_user(account="2025317020104")
     with pytest.raises(Exception):
-        User.objects.create_user(student_id="2025317020104", password="TestPassw0rd!2026")
+        User.objects.create_user(account="2025317020104", password="TestPassw0rd!2026")
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +66,7 @@ def test_user_can_hold_multiple_roles(db, make_user):
 
 
 def test_superuser_passes_any_role_check(db, make_user):
-    admin = make_user(student_id="admin001", is_staff=True, is_superuser=True)
+    admin = make_user(account="admin001", is_staff=True, is_superuser=True)
     assert admin.has_role("anything") is True
 
 
@@ -83,18 +83,18 @@ def test_inactive_role_does_not_grant_permission(db, make_user):
 # 认证
 # ---------------------------------------------------------------------------
 
-def test_authenticate_with_student_id(client, make_user, plain_password):
-    make_user(student_id="2025317020104", password=plain_password)
+def test_authenticate_with_account(client, make_user, plain_password):
+    make_user(account="2025317020104", password=plain_password)
     assert client.login(username="2025317020104", password=plain_password) is True
 
 
 def test_authenticate_with_wrong_password_fails(client, make_user):
-    make_user(student_id="2025317020104")
+    make_user(account="2025317020104")
     assert client.login(username="2025317020104", password="definitely-wrong") is False
 
 
 def test_inactive_user_cannot_login(client, make_user):
-    make_user(student_id="2025317020104", is_active=False)
+    make_user(account="2025317020104", is_active=False)
     assert client.login(username="2025317020104", password="TestPassw0rd!2026") is False
 
 

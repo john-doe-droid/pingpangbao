@@ -4,10 +4,10 @@ import threading
 
 import pytest
 from django.db import IntegrityError, transaction
+from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 
-from competitions.models import Competition, CompetitionStatus, ReviewerAssignment
 from core.audit import AuditLog
 from reviews.models import ReviewAction, ReviewLog
 from submissions import orchestration, services
@@ -132,7 +132,7 @@ class TestFirstSubmission:
         assert sub.current_version.is_overdue is False
 
     def test_extra_material_not_allowed_rejected(self, p3_assignment, p3_member):
-        """提交模板不允许的材料（视频）必须被拒。
+        """提交模板不允许的材料（作品链接）必须被拒。
 
         注意：这里用的是与真实 request.FILES 语义一致的替身 ——
         Django 的 MultiValueDict 里，`getlist(k)` 与 `get(k)` 都能取到同一个上传，
@@ -156,16 +156,15 @@ class TestFirstSubmission:
 
         files = FakeFiles({
             "images": [make_upload("i.jpg", make_image_bytes())],
-            "video": [make_upload("v.mp4",
-                                  b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 100)],
         })
         with pytest.raises(services.SubmissionError) as exc:
             orchestration.submit_new(
                 assignment_id=p3_assignment.pk, user=p3_member,
-                text_content="带视频", post_data={}, files=files,
+                text_content="带链接", post_data={"link": "https://example.com"},
+                files=files,
             )
         assert "不允许提交" in str(exc.value)
-        assert "视频" in str(exc.value)
+        assert "作品链接" in str(exc.value)
 
     def test_disallowed_material_not_uploaded(self, p3_assignment, p3_member):
         """被拒的材料**不应**被上传到存储（前置检查须早于上传）。
@@ -191,13 +190,13 @@ class TestFirstSubmission:
 
         files = FakeFiles({
             "images": [make_upload("ok.jpg", make_image_bytes())],
-            "video": [make_upload("no.mp4",
-                                  b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 100)],
         })
         with pytest.raises(services.SubmissionError):
             orchestration.submit_new(
                 assignment_id=p3_assignment.pk, user=p3_member,
-                text_content="带视频", post_data={}, files=files,
+                text_content="带链接",
+                post_data={"link": "https://example.com"},
+                files=files,
             )
 
         # 存储里不应留下任何本次上传的对象
@@ -251,6 +250,19 @@ class TestRevision:
         submitted.refresh_from_db()
         assert submitted.status == SubmissionStatus.NEEDS_REVISION
         assert submitted.can_be_revised is True
+
+    def test_my_tasks_exposes_direct_revision_action(
+            self, client, submitted, p3_member, p3_reviewer):
+        with transaction.atomic():
+            services.reject_submission(
+                submission=services.lock_submission(submitted.pk),
+                reviewer=p3_reviewer, comment="请修改",
+            )
+        client.force_login(p3_member)
+        response = client.get(reverse("tasks:my_tasks"))
+        body = response.content.decode("utf-8")
+        assert "待修改" in body
+        assert reverse("submissions:submit_revision", args=[submitted.pk]) in body
 
     def test_revision_creates_new_version_only(self, submitted, p3_member, p3_reviewer):
         """重提产生新版本，且**不**新增工作记录（规则 6）。"""
@@ -420,9 +432,9 @@ class TestReview:
         """只有已通过的记录才能发起重新审核。"""
         with pytest.raises(services.SubmissionError) as exc:
             with transaction.atomic():
-                services.approve_submission(
+                services.reopen_submission(
                     submission=services.lock_submission(submitted.pk),
-                    reviewer=p3_reviewer, is_reopen=True, reopen_reason="原因",
+                    reviewer=p3_reviewer, reason="原因",
                 )
         assert "只有「审核通过」" in str(exc.value)
 
@@ -433,10 +445,10 @@ class TestReview:
                 submission=services.lock_submission(submitted.pk),
                 reviewer=p3_reviewer, comment="第一次通过")
         with transaction.atomic():
-            services.approve_submission(
+            services.reopen_submission(
                 submission=services.lock_submission(submitted.pk),
-                reviewer=p3_reviewer, comment="复核后仍通过",
-                is_reopen=True, reopen_reason="发现疑点，需复核",
+                reviewer=p3_reviewer, comment="需要复核",
+                reason="发现疑点，需复核",
             )
 
         logs = ReviewLog.objects.filter(submission=submitted).order_by("acted_at")
@@ -445,6 +457,8 @@ class TestReview:
         assert logs[0].comment == "第一次通过"
         assert logs[1].action == ReviewAction.REOPEN
         assert logs[1].reopen_reason == "发现疑点，需复核"
+        submitted.refresh_from_db()
+        assert submitted.status == SubmissionStatus.PENDING
 
     def test_reopen_writes_to_audit_log(self, submitted, p3_reviewer):
         """审核动作同时写入既有 AuditLog（复用 P2 体系，不另建日志）。"""
@@ -452,9 +466,71 @@ class TestReview:
             services.approve_submission(
                 submission=services.lock_submission(submitted.pk),
                 reviewer=p3_reviewer, comment="通过")
-        assert AuditLog.objects.filter(action="submission.approve").exists()
-        log = AuditLog.objects.filter(action="submission.approve").first()
+        with transaction.atomic():
+            services.reopen_submission(
+                submission=services.lock_submission(submitted.pk),
+                reviewer=p3_reviewer, reason="复核",
+            )
+        assert AuditLog.objects.filter(action="submission.reopen").exists()
+        log = AuditLog.objects.filter(action="submission.reopen").first()
         assert log.actor_id == p3_reviewer.id, "审计必须记录操作人"
+
+    def test_reopen_view_uses_service_and_writes_audit(
+            self, client, submitted, p3_reviewer):
+        with transaction.atomic():
+            services.approve_submission(
+                submission=services.lock_submission(submitted.pk),
+                reviewer=p3_reviewer,
+                comment="第一次通过",
+            )
+        client.force_login(p3_reviewer)
+        response = client.post(
+            reverse("submissions:reopen_submission", args=[submitted.pk]),
+            {"reopen_reason": "发现疑点", "comment": "请复核"},
+            HTTP_HOST="127.0.0.1",
+        )
+        assert response.status_code == 302
+        submitted.refresh_from_db()
+        assert submitted.status == SubmissionStatus.PENDING
+        assert AuditLog.objects.filter(
+            action="submission.reopen",
+            target_id=str(submitted.pk),
+        ).exists()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_concurrent_reopen_only_one_succeeds(self, submitted, p3_reviewer):
+        with transaction.atomic():
+            services.approve_submission(
+                submission=services.lock_submission(submitted.pk),
+                reviewer=p3_reviewer,
+                comment="通过",
+            )
+        outcomes = []
+
+        def worker():
+            from django.db import connection
+            try:
+                with transaction.atomic():
+                    services.reopen_submission(
+                        submission=services.lock_submission(submitted.pk),
+                        reviewer=p3_reviewer,
+                        reason="并发复核",
+                    )
+                outcomes.append("ok")
+            except services.SubmissionError:
+                outcomes.append("rejected")
+            except Exception as exc:  # noqa: BLE001
+                outcomes.append(type(exc).__name__)
+            finally:
+                connection.close()
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        assert outcomes.count("ok") == 1
+        assert outcomes.count("rejected") == 1
 
     def test_concurrent_review_only_one_effective(self, submitted, p3_reviewer):
         """同一轮并发审核只产生一个有效结果。
@@ -519,6 +595,76 @@ class TestConcurrentReview:
 
 @pytest.mark.django_db
 class TestArchived:
+
+    def test_revoked_member_role_hides_tasks_and_blocks_submission(
+            self, p3_assignment, p3_member):
+        from django.test import Client
+
+        p3_member.roles.clear()
+        client = Client(raise_request_exception=False)
+        client.force_login(p3_member)
+        body = client.get(
+            reverse("tasks:my_tasks"), HTTP_HOST="127.0.0.1",
+        ).content.decode("utf-8")
+        assert p3_assignment.task.name not in body
+        with pytest.raises(services.SubmissionError, match="没有干事权限"):
+            orchestration.submit_new(
+                assignment_id=p3_assignment.pk,
+                user=p3_member,
+                text_content="撤销后",
+                post_data={"text_content": "撤销后"},
+                files=files_with_images("revoked.jpg"),
+            )
+
+    def test_cancelled_assignment_cannot_revise_existing_record(
+            self, client, submitted, p3_member, p3_reviewer):
+        with transaction.atomic():
+            services.reject_submission(
+                submission=services.lock_submission(submitted.pk),
+                reviewer=p3_reviewer, comment="修改",
+            )
+        submitted.assignment.is_active = False
+        submitted.assignment.save(update_fields=["is_active", "deactivated_at"])
+        client.force_login(p3_member)
+        page = client.get(
+            reverse("submissions:submit_revision", args=[submitted.pk]),
+            HTTP_HOST="127.0.0.1",
+        )
+        assert page.status_code == 403
+        with pytest.raises(services.SubmissionError, match="分配已被取消"):
+            orchestration.submit_revision(
+                submission_id=submitted.pk,
+                user=p3_member,
+                text_content="不应成功",
+                post_data={"text_content": "不应成功"},
+                files=files_with_images("cancelled.jpg"),
+            )
+
+    def test_archived_task_not_shown_as_current_todo(
+            self, client, submitted, p3_member, p3_competition, p3_admin):
+        p3_competition.archive(by_user=p3_admin)
+        client.force_login(p3_member)
+        body = client.get(reverse("tasks:my_tasks")).content.decode("utf-8")
+        assert submitted.task.name not in body
+        history = client.get(reverse("submissions:my_submissions"))
+        assert history.status_code == 200
+        assert submitted.task.name in history.content.decode("utf-8")
+
+    def test_regular_member_cannot_see_reviewer_identity(
+            self, client, p3_member, p3_member2, p3_competition):
+        from competitions.models import ReviewerAssignment
+
+        ReviewerAssignment.objects.create(
+            competition=p3_competition,
+            reviewer=p3_member,
+            granted_by=p3_member,
+        )
+        client.force_login(p3_member2)
+        body = client.get(
+            reverse("competitions:detail", args=[p3_competition.pk]),
+            HTTP_HOST="127.0.0.1",
+        ).content.decode("utf-8")
+        assert p3_member.real_name not in body
 
     def test_archived_blocks_new_submission(self, p3_assignment, p3_member,
                                             p3_competition, p3_admin):

@@ -7,11 +7,22 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.utils import timezone
+from django.views.decorators.http import require_POST
 
-from .forms import FirstTimePasswordChangeForm, StudentLoginForm
+from core.audit import log_action
+from core.permissions import admin_required
+from core.request_ip import get_client_ip
+
+from .forms import (
+    FirstTimePasswordChangeForm,
+    ManagedMemberCreateForm,
+    ManagedMemberPasswordForm,
+    StudentLoginForm,
+)
+from .models import User
+from .security import sync_session_security_version
 
 
 class StudentLoginView(LoginView):
@@ -26,7 +37,7 @@ class StudentLoginView(LoginView):
         user = self.request.user
 
         # 记录登录 IP，供后续审计
-        ip = self._client_ip(self.request)
+        ip = get_client_ip(self.request)
         if ip:
             type(user).objects.filter(pk=user.pk).update(last_login_ip=ip)
 
@@ -37,21 +48,7 @@ class StudentLoginView(LoginView):
             )
             return redirect("accounts:password_change")
 
-        # 登录后弹一次使用说明（按身份给不同内容）。
-        #
-        # 用 session 标记而不是数据库字段：这是纯展示状态，
-        # "关掉浏览器再登录"确实应该再看到一次；
-        # 也不该为了它给用户表加字段、写迁移。
-        self.request.session["show_welcome"] = True
         return response
-
-    @staticmethod
-    def _client_ip(request):
-        forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR")
-
 
 class StudentLogoutView(LogoutView):
     next_page = reverse_lazy("core:home")
@@ -69,7 +66,7 @@ def password_change(request):
             user.mark_password_changed()
             # 改密后保持登录状态，否则用户会被登出、体验突兀
             update_session_auth_hash(request, user)
-            request.user.password_changed_at = timezone.now()
+            sync_session_security_version(request, user)
             messages.success(request, "密码修改成功。")
             return redirect("core:home")
     else:
@@ -80,3 +77,88 @@ def password_change(request):
         "accounts/password_change.html",
         {"form": form, "force_mode": force_mode},
     )
+
+
+def _managed_members_queryset():
+    """仅返回普通成员，防止社团管理员通过此入口修改高权限账号。"""
+    return (
+        User.objects
+        .filter(roles__code="member")
+        .exclude(is_superuser=True)
+        .exclude(is_staff=True)
+        .exclude(roles__code="club_admin")
+        .distinct()
+        .order_by("account")
+    )
+
+
+@admin_required
+def managed_members(request):
+    return render(request, "accounts/managed_members.html", {
+        "members": _managed_members_queryset(),
+        "page_title": "成员管理",
+    })
+
+
+@admin_required
+def managed_member_create(request):
+    if request.method == "POST":
+        form = ManagedMemberCreateForm(request.POST)
+        if form.is_valid():
+            member = form.save()
+            log_action(request, "member.create", member)
+            messages.success(
+                request,
+                "成员账号已创建。请把账号和初始密码告知本人，首次登录会要求改密。",
+            )
+            return redirect("members_admin:list")
+        messages.error(request, "表单填写有误，请检查下方提示。")
+    else:
+        form = ManagedMemberCreateForm()
+    return render(request, "accounts/member_form.html", {
+        "form": form,
+        "page_title": "新建成员账号",
+        "is_create": True,
+    })
+
+
+@admin_required
+def managed_member_password(request, pk):
+    member = get_object_or_404(_managed_members_queryset(), pk=pk)
+    if request.method == "POST":
+        form = ManagedMemberPasswordForm(request.POST, user=member)
+        if form.is_valid():
+            form.save()
+            log_action(
+                request, "member.password_reset", member,
+                detail="重置初始密码并要求下次登录修改",
+            )
+            messages.success(request, "初始密码已重置，成员下次登录必须修改密码。")
+            return redirect("members_admin:list")
+        messages.error(request, "表单填写有误，请检查下方提示。")
+    else:
+        form = ManagedMemberPasswordForm(user=member)
+    return render(request, "accounts/member_form.html", {
+        "form": form,
+        "member": member,
+        "page_title": "重置成员密码",
+        "is_create": False,
+    })
+
+
+@admin_required
+@require_POST
+def managed_member_toggle(request, pk):
+    member = get_object_or_404(_managed_members_queryset(), pk=pk)
+    member.is_active = not member.is_active
+    # 停用后立即断开已有会话；重新启用时也换一个新版本，
+    # 防止停用前保留下来的旧会话在重新启用后“复活”。
+    member.security_version += 1
+    member.save(update_fields=["is_active", "security_version"])
+    action = "member.enable" if member.is_active else "member.disable"
+    log_action(request, action, member)
+    messages.success(
+        request,
+        "账号已%s。" % ("启用" if member.is_active else "停用"),
+    )
+    return redirect("members_admin:list")

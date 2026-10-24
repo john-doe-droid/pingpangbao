@@ -63,13 +63,13 @@ def csrf_of(body):
     return m.group(1) if m else None
 
 
-def login(opener, student_id, password):
+def login(opener, account, password):
     _s, body = get(opener, "/accounts/login/")
     token = csrf_of(body)
     if not token:
         return False, "登录页无 CSRF token"
     data = urllib.parse.urlencode({
-        "csrfmiddlewaretoken": token, "username": student_id, "password": password,
+        "csrfmiddlewaretoken": token, "username": account, "password": password,
     }).encode()
     req = urllib.request.Request(BASE + "/accounts/login/", data=data)
     req.add_header("Referer", BASE + "/accounts/login/")

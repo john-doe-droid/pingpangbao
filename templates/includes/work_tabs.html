@@ -1,0 +1,17 @@
+<nav class="pp-tabs" aria-label="我的工作">
+  <a class="pp-tabs__link {% if active_tab == 'tasks' %}is-active{% endif %}"
+     href="{% url 'tasks:my_tasks' %}"
+     {% if active_tab == 'tasks' %}aria-current="page"{% endif %}>待办任务</a>
+  <a class="pp-tabs__link {% if active_tab == 'submissions' %}is-active{% endif %}"
+     href="{% url 'submissions:my_submissions' %}"
+     {% if active_tab == 'submissions' %}aria-current="page"{% endif %}>
+    我的提交{% if nav_need_revision %}<span class="pp-tabs__badge" aria-label="{{ nav_need_revision }} 条记录待修改">{{ nav_need_revision }}</span>{% endif %}
+  </a>
+  {% if nav_can_review %}
+    <a class="pp-tabs__link {% if active_tab == 'review' %}is-active{% endif %}"
+       href="{% url 'submissions:review_queue' %}"
+       {% if active_tab == 'review' %}aria-current="page"{% endif %}>
+      待我审核{% if nav_review_pending %}<span class="pp-tabs__badge" aria-label="{{ nav_review_pending }} 条记录待审核">{{ nav_review_pending }}</span>{% endif %}
+    </a>
+  {% endif %}
+</nav>

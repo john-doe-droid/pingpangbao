@@ -34,7 +34,7 @@ def get(opener, path):
         return exc.code, exc.read().decode("utf-8", "replace")
 
 
-def login(opener, student_id):
+def login(opener, account):
     """走真实登录表单：先取 CSRF token，再 POST。"""
     _status, body = get(opener, "/accounts/login/")
     m = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', body)
@@ -44,7 +44,7 @@ def login(opener, student_id):
 
     data = urllib.parse.urlencode({
         "csrfmiddlewaretoken": token,
-        "username": student_id,
+        "username": account,
         "password": PASSWORD,
     }).encode("utf-8")
 
@@ -74,7 +74,7 @@ def main():
     check("干事甲登录", ok, detail)
 
     status, body = get(s1, "/my/tasks/")
-    check("我的任务页可访问", status == 200, "HTTP %s" % status)
+    check("我的工作页可访问", status == 200, "HTTP %s" % status)
     check("能看到自己的任务 1", "制作赛前海报" in body, "任务 1 出现在列表中")
     check("能看到自己的任务 2", "撰写赛后推文" in body, "任务 2 出现在列表中")
 
@@ -99,7 +99,7 @@ def main():
     check("干事乙登录", ok, detail)
 
     status, body = get(s2, "/my/tasks/")
-    check("我的任务页可访问", status == 200, "HTTP %s" % status)
+    check("我的工作页可访问", status == 200, "HTTP %s" % status)
     check("能看到自己的任务 1", "制作赛前海报" in body, "任务 1 在列表中")
     check("看不到别人（干事甲）的任务 2", "撰写赛后推文" not in body,
           "任务 2 未出现在干事乙的列表里")
@@ -111,14 +111,14 @@ def main():
     status, _ = get(s2, "/my/tasks/mine/1/")
     check("打开自己的任务 1 正常", status == 200, "HTTP %s" % status)
 
-    # ---------- 查看员：有查看权但无管理权、无审核权 ----------
-    print("\n【演示查看员 D-VIEWER（全局查看）】")
+    # ---------- 普通用户：可查看公开比赛，但无管理权、无审核权 ----------
+    print("\n【普通用户 D-VIEWER】")
     s3 = make_session()
     ok, detail = login(s3, "D-VIEWER")
-    check("查看员登录", ok, detail)
+    check("普通用户登录", ok, detail)
 
     status, _ = get(s3, "/competitions/")
-    check("查看员能看比赛列表", status == 200, "HTTP %s" % status)
+    check("普通用户能看比赛列表", status == 200, "HTTP %s" % status)
 
     for path, label in [
         ("/competitions/new/", "新建比赛页"),
@@ -126,19 +126,19 @@ def main():
         ("/competitions/5/reviewers/", "审核人授权页"),
     ]:
         status, _ = get(s3, path)
-        check("查看员不能进入%s" % label, status == 403, "HTTP %s" % status)
+        check("普通用户不能进入%s" % label, status == 403, "HTTP %s" % status)
 
     # ---------- 未登录 ----------
     print("\n【未登录】")
     anon = make_session()
     for path, label in [
-        ("/my/tasks/", "我的任务"),
+        ("/my/tasks/", "我的工作"),
         ("/competitions/", "比赛管理"),
         ("/manage/tasks/templates/", "任务模板"),
     ]:
         status, body = get(anon, path)
         # 未登录应被重定向到登录页（urllib 会自动跟随，最终落到登录页）
-        redirected = "/accounts/login/" in body or "请输入学号" in body
+        redirected = "/accounts/login/" in body or "请输入账号" in body
         check("未登录访问%s会跳登录" % label,
               status == 200 and redirected, "HTTP %s，落到登录页=%s" % (status, redirected))
 

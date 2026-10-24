@@ -42,23 +42,6 @@ class MaterialType(models.TextChoices):
     VIDEO = "video", "视频"
 
 
-class SubmissionQuerySet(models.QuerySet):
-    def pending(self):
-        return self.filter(status=SubmissionStatus.PENDING)
-
-    def needs_revision(self):
-        return self.filter(status=SubmissionStatus.NEEDS_REVISION)
-
-    def approved(self):
-        return self.filter(status=SubmissionStatus.APPROVED)
-
-    def for_member(self, user):
-        return self.filter(assignment__member=user)
-
-    def for_competition(self, competition):
-        return self.filter(assignment__task__competition=competition)
-
-
 class Submission(models.Model):
     """一条工作记录。
 
@@ -88,8 +71,6 @@ class Submission(models.Model):
 
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
     updated_at = models.DateTimeField("更新时间", auto_now=True)
-
-    objects = SubmissionQuerySet.as_manager()
 
     class Meta:
         verbose_name = "工作记录"
@@ -414,6 +395,12 @@ class UserImageUsage(models.Model):
     )
     image_count = models.PositiveIntegerField("已用图片张数", default=0)
     total_bytes = models.BigIntegerField("已用图片字节数", default=0)
+    quota_period_start = models.DateField(
+        "当前配额周期开始日期",
+        null=True,
+        blank=True,
+        help_text="用于区分春季/秋季学期；为空时会在下次提交时重新核算",
+    )
 
     updated_at = models.DateTimeField("更新时间", auto_now=True)
 
@@ -430,7 +417,7 @@ class UserImageUsage(models.Model):
         return "%s：%d 张 / %d 字节" % (self.user, self.image_count, self.total_bytes)
 
     @classmethod
-    def recalculate_from_attachments(cls, user):
+    def recalculate_from_attachments(cls, user, since=None):
         """依据现存附件重新核算用量（用于自检与修复）。
 
         只统计**主图**记录（缩略图通过 thumbnail_bytes 已包含），
@@ -439,9 +426,15 @@ class UserImageUsage(models.Model):
         """
         from django.db.models import Count, Sum
 
+        attachments = Attachment.objects.filter(
+            uploaded_by=user,
+            material_type=MaterialType.IMAGE,
+            is_thumbnail=False,
+        )
+        if since is not None:
+            attachments = attachments.filter(uploaded_at__gte=since)
         agg = (
-            Attachment.objects
-            .filter(uploaded_by=user, material_type=MaterialType.IMAGE, is_thumbnail=False)
+            attachments
             .aggregate(
                 count=Count("id"),
                 byte_sum=Sum("size_bytes"),
@@ -453,5 +446,9 @@ class UserImageUsage(models.Model):
         usage, _ = cls.objects.get_or_create(user=user)
         usage.image_count = count
         usage.total_bytes = total
-        usage.save(update_fields=["image_count", "total_bytes", "updated_at"])
+        if since is not None:
+            usage.quota_period_start = since.date()
+        usage.save(update_fields=[
+            "image_count", "total_bytes", "quota_period_start", "updated_at",
+        ])
         return usage

@@ -11,7 +11,7 @@ import logging
 
 from django.db import connection
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 
@@ -154,35 +154,50 @@ def private_file(request, key):
 
 
 def home(request):
-    """基础首页。
+    """登录后的角色化首页：成员直达工作，管理员查看待处理概览。"""
+    if not request.user.is_authenticated:
+        return render(request, "core/home.html", {
+            "entries": [
+                {"label": "登录", "url": reverse("accounts:login"), "primary": True},
+            ],
+        })
 
-    展示当前已可用的入口。本阶段（P2）已提供比赛与任务管理；
-    工作成果提交与审核仍属后续阶段。
-    """
-    checks = [
-        {"name": "工程底座", "desc": "config / accounts / core 分层，密钥与配置全部来自环境变量"},
-        {"name": "用户与角色", "desc": "学号登录，多角色并存，首登强制改密"},
-        {"name": "比赛管理", "desc": "创建、修改、归档；草稿不对干事开放"},
-        {"name": "任务模板", "desc": "材料要求与提交份数可页面维护，创建任务时冻结快照"},
-        {"name": "人员分配", "desc": "一项任务可分配给多名干事，历史记录保留"},
-        {"name": "审核人授权", "desc": "逐场授权；管理员身份本身不自动获得审核权"},
-        {"name": "我的任务", "desc": "干事只能看到分配给自己的任务"},
-    ]
+    if not user_is_admin(request.user):
+        return redirect("tasks:my_tasks")
 
-    if request.user.is_authenticated:
-        entries = [
-            {"label": "我的任务", "url": reverse("tasks:my_tasks"), "primary": True},
-            {"label": "比赛管理", "url": reverse("competitions:list"), "primary": False},
-        ]
-        if user_is_admin(request.user):
-            entries += [
-                {"label": "任务模板", "url": reverse("tasks_admin:template_list"), "primary": False},
-                {"label": "工作类型", "url": reverse("tasks_admin:worktype_list"), "primary": False},
-            ]
-    else:
-        entries = [{"label": "登录", "url": reverse("accounts:login"), "primary": True}]
+    from django.db.models import Q
+    from django.utils import timezone
 
-    return render(request, "core/home.html", {
-        "checks": checks,
-        "entries": entries,
-    })
+    from competitions.models import Competition, CompetitionStatus
+    from submissions.models import Submission, SubmissionStatus
+    from tasks.models import CompetitionTask
+
+    now = timezone.now()
+    active_tasks = CompetitionTask.objects.filter(
+        competition__status=CompetitionStatus.ACTIVE,
+    )
+    overdue_tasks = active_tasks.filter(
+        Q(deadline__isnull=False, deadline__lt=now)
+        | Q(deadline__isnull=True, competition__default_deadline__lt=now)
+    ).count()
+    unassigned_tasks = (
+        active_tasks
+        .exclude(assignments__is_active=True)
+        .distinct()
+        .count()
+    )
+
+    dashboard = {
+        "pending_submissions": Submission.objects.filter(
+            status=SubmissionStatus.PENDING,
+        ).count(),
+        "needs_revision": Submission.objects.filter(
+            status=SubmissionStatus.NEEDS_REVISION,
+        ).count(),
+        "active_competitions": Competition.objects.filter(
+            status=CompetitionStatus.ACTIVE,
+        ).count(),
+        "overdue_tasks": overdue_tasks,
+        "unassigned_tasks": unassigned_tasks,
+    }
+    return render(request, "core/home.html", {"dashboard": dashboard})

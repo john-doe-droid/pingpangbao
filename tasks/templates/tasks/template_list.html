@@ -14,12 +14,12 @@
     </div>
     {% if can_manage %}
       <div class="pp-page-header__actions">
-        <a class="btn btn-outline-secondary"
-           href="{% url 'tasks_admin:worktype_list' %}">工作类型</a>
         <a class="btn btn-primary" href="{% url 'tasks_admin:template_create' %}">新建模板</a>
       </div>
     {% endif %}
   </div>
+
+  {% include "includes/manage_tabs.html" %}
 
   <div class="pp-filter-bar">
     <div class="pp-segment" role="group" aria-label="按启用状态筛选模板">

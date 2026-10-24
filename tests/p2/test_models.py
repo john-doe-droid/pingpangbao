@@ -185,7 +185,7 @@ class TestTaskTemplate:
             with transaction.atomic():
                 TaskTemplate.objects.create(
                     name="绕过表单", work_type=worktype, created_by=admin_user,
-                    allow_video=False, require_video=True,
+                    allow_link=False, require_link=True,
                 )
 
     def test_max_records_must_be_positive_db(self, worktype, admin_user):
@@ -254,7 +254,6 @@ class TestCompetitionTask:
         template = make_template(
             name="原始要求", work_type=worktype,
             allow_image=True, require_image=True,
-            allow_video=False, require_video=False,
             max_records_per_member=1,
         )
         task = make_task(template)
@@ -262,8 +261,8 @@ class TestCompetitionTask:
         # 现在把模板改成完全不同的要求
         template.allow_image = False
         template.require_image = False
-        template.allow_video = True
-        template.require_video = True
+        template.allow_link = True
+        template.require_link = True
         template.max_records_per_member = 9
         template.save()
 
@@ -272,7 +271,7 @@ class TestCompetitionTask:
 
         assert snap["require_image"] is True, "快照不应被模板修改影响"
         assert snap["allow_image"] is True
-        assert snap["require_video"] is False, "模板新增的要求不应污染旧任务"
+        assert snap.get("require_link") is False, "模板新增的要求不应污染旧任务"
         assert task.max_records_per_member == 1
         assert template.max_records_per_member == 9
 
@@ -373,7 +372,7 @@ class TestTaskAssignment:
     def test_deactivated_not_in_active_queryset(self, task, member_user, make_assignment):
         a = make_assignment(task, member_user)
         a.deactivate()
-        assert task.assignments.active().count() == 0
+        assert task.assignments.filter(is_active=True).count() == 0
 
     def test_deactivate_is_idempotent(self, task, member_user, make_assignment):
         a = make_assignment(task, member_user)

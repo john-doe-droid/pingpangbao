@@ -7,16 +7,14 @@
 
   <div class="pp-page-header">
     <div class="pp-page-header__main">
-      <h1 class="pp-page-title">工作记录管理</h1>
+      <h1 class="pp-page-title">全部记录</h1>
       <p class="pp-page-header__desc">
         查看全部成员的工作记录。审核历史在每条记录的详情页里。
       </p>
     </div>
-    <div class="pp-page-header__actions">
-      <a class="btn btn-outline-secondary"
-         href="{% url 'tasks_admin:template_list' %}">任务模板</a>
-    </div>
   </div>
+
+  {% include "includes/manage_tabs.html" %}
 
   {% if orphan_count %}
     <div class="alert alert-warning" role="alert">

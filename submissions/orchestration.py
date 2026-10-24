@@ -20,16 +20,13 @@ from __future__ import annotations
 
 from django.db import IntegrityError, transaction
 
-from tasks.models import TaskAssignment
-
 from . import services
-from .models import Submission, SubmissionStatus, SubmissionVersion
+from .models import Submission, SubmissionVersion
 from .pipeline import (
     cleanup_uploaded,
     prepare_file,
     prepare_image,
     prepare_link,
-    prepare_video,
     record_orphans,
 )
 from .services import PendingUpload, SubmissionError
@@ -48,9 +45,6 @@ def _declared_material_types(post_data, files) -> set:
         present.add("image")
     if [f for f in files.getlist("files") if getattr(f, "name", "")]:
         present.add("file")
-    video = files.get("video")
-    if video and getattr(video, "name", ""):
-        present.add("video")
     if (post_data.get("link") or "").strip():
         present.add("link")
     return present
@@ -73,7 +67,7 @@ def assert_materials_allowed(task, present_types) -> None:
 
     snapshot = task.rule_snapshot or {}
     disallowed = []
-    for key in ("text", "image", "file", "link", "video"):
+    for key in ("text", "image", "file", "link"):
         if key in present_types and not snapshot.get("allow_%s" % key):
             disallowed.append(MATERIAL_LABELS.get(key, key))
     if disallowed:
@@ -102,10 +96,6 @@ def _collect_material_uploads(post_data, files, *, user) -> list[PendingUpload]:
         if not upload or not getattr(upload, "name", ""):
             continue
         uploads.append(prepare_file(upload, user=user))
-
-    video = files.get("video")
-    if video and getattr(video, "name", ""):
-        uploads.append(prepare_video(video, user=user))
 
     link = (post_data.get("link") or "").strip()
     if link:
@@ -167,6 +157,39 @@ def _count_images(uploads: list[PendingUpload]) -> tuple[int, int]:
     return count, total
 
 
+def _assert_request_limits(post_data, files, limits):
+    """在上传前限制数量、文字长度和请求总字节数。"""
+    text = post_data.get("text_content") or ""
+    if len(text) > limits.text_max_chars:
+        raise SubmissionError(
+            "文字说明不能超过 %d 个字符。" % limits.text_max_chars,
+        )
+
+    images = [f for f in files.getlist("images") if getattr(f, "name", "")]
+    ordinary_files = [f for f in files.getlist("files") if getattr(f, "name", "")]
+    if len(images) > limits.images_per_submission:
+        raise SubmissionError(
+            "一次最多提交 %d 张图片，当前为 %d 张。"
+            % (limits.images_per_submission, len(images))
+        )
+    if len(ordinary_files) > limits.files_per_submission:
+        raise SubmissionError(
+            "一次最多提交 %d 个文件，当前为 %d 个。"
+            % (limits.files_per_submission, len(ordinary_files))
+        )
+    total_size = sum(
+        int(getattr(item, "size", 0) or 0)
+        for item in images + ordinary_files
+    )
+    if total_size > limits.submission_total_bytes:
+        from core.upload_config import human_size
+
+        raise SubmissionError(
+            "本次上传总大小不能超过 %s，当前为 %s。"
+            % (human_size(limits.submission_total_bytes), human_size(total_size))
+        )
+
+
 def submit_new(*, assignment_id: int, user, text_content: str,
                post_data, files) -> Submission:
     """新建一条工作记录（首次提交）。
@@ -174,6 +197,7 @@ def submit_new(*, assignment_id: int, user, text_content: str,
     成功后返回 Submission（状态为待审核）。
     """
     limits = services.get_limits()
+    _assert_request_limits(post_data, files, limits)
 
     # --- 上传前的前置检查（材料类型是否被允许）---
     # 必须在图片处理与对象上传之前 —— 否则被拒的材料也已白白上传一遍。
@@ -232,6 +256,7 @@ def submit_revision(*, submission_id: int, user, text_content: str,
     旧版本与其附件保持不动，新版本独立记录。
     """
     limits = services.get_limits()
+    _assert_request_limits(post_data, files, limits)
 
     # 上传前的前置检查（材料类型是否被允许）—— 见 submit_new 中的说明
     submission_for_task = _peek_submission_task(submission_id)
@@ -248,6 +273,11 @@ def submit_revision(*, submission_id: int, user, text_content: str,
 
             if submission.assignment.member_id != user.id:
                 raise SubmissionError("这不是您的工作记录，无法修改。")
+            if not submission.assignment.is_active:
+                raise SubmissionError("该任务分配已被取消，不能继续修改。")
+            from core.permissions import user_is_member
+            if not user_is_member(user):
+                raise SubmissionError("您当前没有干事权限，不能继续修改。")
             if not submission.can_be_revised:
                 raise SubmissionError(
                     "当前状态为「%s」，只有「退回修改」的记录才能重新提交。"

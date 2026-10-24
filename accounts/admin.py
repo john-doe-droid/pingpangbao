@@ -13,6 +13,16 @@ class RoleAdmin(admin.ModelAdmin):
     search_fields = ("code", "name")
     ordering = ("sort_order", "code")
 
+    # 业务代码只识别 club_admin 和 member；禁止在后台创建无效的新角色。
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
@@ -23,16 +33,16 @@ class UserAdmin(BaseUserAdmin):
     """
 
     list_display = (
-        "student_id", "real_name", "role_list",
+        "account", "real_name", "role_list",
         "is_active", "must_change_password", "last_login",
     )
     list_filter = ("is_active", "must_change_password", "is_staff", "roles")
-    search_fields = ("student_id", "real_name", "phone")
-    ordering = ("student_id",)
+    search_fields = ("account", "real_name", "phone")
+    ordering = ("account",)
     filter_horizontal = ("roles", "groups", "user_permissions")
 
     fieldsets = (
-        (None, {"fields": ("student_id", "password")}),
+        (None, {"fields": ("account", "password")}),
         (_("个人信息"), {"fields": ("real_name", "phone", "email")}),
         (_("角色与权限"), {
             "fields": ("roles", "is_active", "is_staff", "is_superuser", "groups", "user_permissions"),
@@ -44,7 +54,7 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("student_id", "real_name", "phone", "roles",
+            "fields": ("account", "real_name", "phone", "roles",
                        "password1", "password2", "must_change_password"),
         }),
     )

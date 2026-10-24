@@ -1,9 +1,4 @@
-"""模板上下文处理器。
-
-两个职责：
-  · site_context  —— 全站通用的站点信息（原有的）
-  · welcome_tour  —— 登录后弹一次的使用说明（按身份给内容）
-"""
+"""模板上下文处理器：站点信息与导航待办计数。"""
 from __future__ import annotations
 
 from django.conf import settings
@@ -17,68 +12,47 @@ def site_context(request):
     }
 
 
-def welcome_tour(request):
-    """登录后弹一次的使用说明（读取即消费，保证只弹一次）。
+def navigation_context(request):
+    """提供导航可见性与待办数字。
 
-    为什么用 context processor 而不是中间件：
-        这是纯粹的展示状态，只在渲染模板时需要。中间件会对每个请求
-        （含静态资源、健康检查）都跑一遍，没必要。
-
-    为什么不能直接在模板里读 session：
-        Django 模板无法修改 session；而"只弹一次"要求读取的同时清掉标记。
+    审核入口只对当前确实拥有有效审核授权的用户显示，避免普通成员点进
+    一个永远是空队列的页面。计数仅用于导航提示，真正的权限仍由视图校验。
     """
-    if not getattr(request, "session", None):
-        return {}
-
-    # pop：读取的同时清掉，保证"只弹一次"
-    if not request.session.pop("show_welcome", False):
-        return {}
-
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
         return {}
 
+    from competitions.models import ReviewerAssignment
     from core.permissions import user_is_admin
+    from submissions.models import Submission, SubmissionStatus
 
-    is_admin = user_is_admin(user)
+    review_competition_ids = list(
+        ReviewerAssignment.objects.filter(
+            reviewer=user, is_active=True,
+        ).values_list("competition_id", flat=True)
+    )
+    can_review = bool(review_competition_ids)
 
-    # 是否被授权审核某场比赛（决定要不要多讲一句审核的事）
-    review_competitions = []
-    if not is_admin:
-        from competitions.permissions import competitions_reviewable_by
-
-        review_competitions = list(
-            competitions_reviewable_by(user).values_list("name", flat=True)[:3]
+    review_pending = 0
+    if can_review:
+        review_pending = (
+            Submission.objects
+            .filter(
+                status=SubmissionStatus.PENDING,
+                assignment__task__competition_id__in=review_competition_ids,
+            )
+            .exclude(assignment__member=user)
+            .count()
         )
 
-    if is_admin:
-        title = "欢迎使用，管理员"
-        items = [
-            "在「比赛」里创建比赛，并把它设为「进行中」。",
-            "在比赛详情里从模板添加任务，再指定由谁来做。",
-            "「任务模板」定义一类工作要交哪些材料，可重复使用。",
-            "「审核」用来处理成员提交的成果；「统计报表」可导出 Excel。",
-        ]
-    elif review_competitions:
-        names = "、".join(review_competitions)
-        title = "欢迎使用"
-        items = [
-            "「我的任务」里只有分配给你的任务，做完点「提交成果」即可。",
-            "提交后可在「我的工作记录」查看审核结果与退回意见。",
-            "你还需要审核：%s。相关提交会出现在「审核」里。" % names,
-        ]
-    else:
-        title = "欢迎使用"
-        items = [
-            "「我的任务」里只有分配给你的任务，做完点「提交成果」即可。",
-            "「我的工作记录」可以查看自己提交过的内容与审核结果。",
-            "「比赛」可以了解社团正在办哪些比赛。",
-        ]
+    need_revision = Submission.objects.filter(
+        assignment__member=user,
+        status=SubmissionStatus.NEEDS_REVISION,
+    ).count()
 
     return {
-        "welcome_tour": {
-            "title": title,
-            "items": items,
-            "name": user.get_short_name(),
-        }
+        "nav_is_admin": user_is_admin(user),
+        "nav_can_review": can_review,
+        "nav_review_pending": review_pending,
+        "nav_need_revision": need_revision,
     }

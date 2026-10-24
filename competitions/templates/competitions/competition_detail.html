@@ -104,7 +104,8 @@
     </div>
   </div>
 
-  {# ---------- 审核人授权 ---------- #}
+  {# ---------- 审核人授权（仅管理员查看） ---------- #}
+  {% if can_manage %}
   <div class="pp-surface">
     <div class="pp-surface__header">
       <h2 class="pp-section-title">审核人授权</h2>
@@ -139,6 +140,7 @@
       </div>
     {% endif %}
   </div>
+  {% endif %}
 
   {# ---------- 任务列表 ---------- #}
   <div class="pp-surface">
@@ -219,7 +221,7 @@
           <p class="pp-empty__desc">
             你只会看到分配给自己的任务。要参与这场比赛，请联系社团管理员安排。
           </p>
-          <a class="btn btn-outline-secondary" href="{% url 'tasks:my_tasks' %}">查看我的任务</a>
+          <a class="btn btn-outline-secondary" href="{% url 'tasks:my_tasks' %}">查看我的工作</a>
         {% endif %}
       </div>
     {% endif %}

@@ -10,21 +10,15 @@
 本模块**不做任何越权便利**，例如给管理员加"看全部"的旁路 —— 管理员本来就在
 visible_submissions_for 里返回全部。
 
-访问范围：
-    · 登录即可访问（干事也能导出**自己**的记录，用于个人存档）
-    · 但能看到的**数据范围**由权限层决定，不是由页面决定
+访问范围：页面与导出均仅社团管理员可用；干事在「我的提交」中查看个人记录。
 """
 from __future__ import annotations
-
-from datetime import datetime
 
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
 from core.permissions import admin_required
-from submissions.models import SubmissionStatus
-
 from . import excel, statistics
 from .filters import (
     COUNTING_NOTE,
@@ -47,7 +41,6 @@ def _filter_context(request, filters, warnings):
     """筛选表单所需的选项（比赛/任务/工作类型/成员）。"""
     from django.contrib.auth import get_user_model
 
-    from competitions.models import Competition
     from tasks.models import CompetitionTask, WorkType
 
     # 只列出**当前用户有权看到的**比赛，避免下拉里出现别部门的比赛名
@@ -71,7 +64,7 @@ def _filter_context(request, filters, warnings):
     User = get_user_model()
     members = (User.objects
                .filter(pk__in=member_ids)
-               .order_by("student_id")[:300])
+               .order_by("account")[:300])
 
     return {
         "competition_options": competitions,
@@ -97,7 +90,7 @@ def report_page(request):
     """报表页面（仅社团管理员）：筛选 + 三张表预览 + 导出入口。
 
     P6 规则变更：原本登录用户都能访问（干事只看得到自己的记录）。
-    但实际使用时，干事看自己的记录去「我的工作记录」就够了，
+    但实际使用时，干事看自己的记录去「我的工作 → 我的提交」就够了，
     报表页面对他们没有意义；而报表的筛选与汇总又天然是管理视角。
     因此收紧为仅管理员。这是**有意的权限收紧**，不是接口损坏：
 

@@ -16,17 +16,10 @@ psycopg[binary]==3.2.13
 gunicorn==23.0.0
 
 # --- 环境变量管理 ---
-python-dotenv==1.2.1
+python-dotenv==1.2.2
 
 # --- 配置/部署辅助 ---
 whitenoise==6.11.0
-
-# --- 测试 ---
-pytest==8.4.2
-pytest-django==4.11.1
-
-# --- 代码质量（可选但已锁版本）---
-ruff==0.14.3
 
 # --- P3：图片处理（魔数检测 / EXIF 方向 / 压缩 / 缩略图）---
 # 13.0.0 已实测在 Python 3.13 下可用，且 WebP / JPEG / zlib 支持齐备

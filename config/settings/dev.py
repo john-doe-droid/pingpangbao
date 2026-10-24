@@ -39,9 +39,6 @@ DATABASES = {
     }
 }
 
-# 开发环境控制台邮件后端；生产必须换成真实 SMTP
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
 # 静态文件：开发环境由 Django 直接服务，便于即时看到改动
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

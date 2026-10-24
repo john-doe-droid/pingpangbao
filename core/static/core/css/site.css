@@ -1659,45 +1659,118 @@ select[multiple].form-select option:checked {
 .pp-container--narrow .pp-list__desc { max-width: 62ch; }
 
 /* --------------------------------------------------------------------------
-   29. 登录后使用说明对话框
-   用原生 <dialog>：Esc 与焦点约束由浏览器负责，不额外引入 JS 库。
+   29. 统一工作区、待办数字与渐进式筛选
    -------------------------------------------------------------------------- */
-.pp-welcome {
+.pp-nav__badge,
+.pp-tabs__badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: var(--pp-radius-pill);
+  background: var(--pp-primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.pp-nav__badge { margin-left: 4px; }
+.pp-nav__badge--warning,
+.pp-tabs__badge { background: var(--pp-warning-text); }
+
+.pp-tabs {
+  display: flex;
+  gap: var(--pp-space-1);
+  margin: 0 0 var(--pp-space-4);
+  padding: 0 0 var(--pp-space-2);
+  border-bottom: 1px solid var(--pp-border);
+  overflow-x: auto;
+}
+
+.pp-tabs__link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--pp-radius) var(--pp-radius) 0 0;
+  color: var(--pp-text-secondary);
+  white-space: nowrap;
+}
+
+.pp-tabs__link:hover {
+  background: var(--pp-neutral-bg);
+  color: var(--pp-text);
+  text-decoration: none;
+}
+
+.pp-tabs__link.is-active {
+  background: var(--pp-selected-bg);
+  color: var(--pp-primary);
+  font-weight: 500;
+}
+
+/* 手机端工作区页签换行，避免当前页签被横向滚动区域推到屏外。 */
+@media (max-width: 575.98px) {
+  .pp-tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+.pp-dashboard-stats { margin-bottom: var(--pp-space-4); }
+.pp-stat--link { color: inherit; text-decoration: none; }
+.pp-stat--link:hover {
+  color: inherit;
+  border-color: var(--pp-border-strong);
+  text-decoration: none;
+}
+
+.pp-choice-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pp-inline-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pp-space-2);
+}
+
+.pp-inline-option {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
   border: 1px solid var(--pp-border);
   border-radius: var(--pp-radius);
-  padding: 0;
-  max-width: 460px;
-  width: calc(100% - 32px);
-  box-shadow: var(--pp-shadow-2);
-  color: var(--pp-text);
+  cursor: pointer;
 }
-.pp-welcome::backdrop {
-  background: rgba(32, 33, 36, 0.42);
+
+.pp-inline-option:hover {
+  border-color: var(--pp-border-strong);
+  background: var(--pp-neutral-bg);
 }
-.pp-welcome__body { padding: var(--pp-space-5); }
-.pp-welcome__title {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 0 0 var(--pp-space-3);
-  line-height: 1.4;
-}
-.pp-welcome__list {
-  margin: 0;
-  padding-left: 1.15em;
-  font-size: var(--pp-fs-body);
-  line-height: 1.6;
-  color: var(--pp-text);
-}
-.pp-welcome__list li + li { margin-top: var(--pp-space-2); }
-.pp-welcome__actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: var(--pp-space-5);
-  padding-top: var(--pp-space-4);
+
+.pp-choice-input { margin: 0; }
+
+.pp-advanced-filter {
+  margin-top: var(--pp-space-3);
+  padding-top: var(--pp-space-3);
   border-top: 1px solid var(--pp-border);
 }
-@media (max-width: 575.98px) {
-  .pp-welcome { max-width: none; width: calc(100% - 24px); margin: 12px; }
-  .pp-welcome__body { padding: var(--pp-space-4); }
-  .pp-welcome__actions .btn { width: 100%; }
+
+.pp-advanced-filter > summary {
+  width: fit-content;
+  color: var(--pp-primary);
+  cursor: pointer;
+}
+
+.pp-advanced-filter[open] > summary {
+  margin-bottom: var(--pp-space-3);
 }

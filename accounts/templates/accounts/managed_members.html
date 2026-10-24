@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}成员管理 · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container pp-container">
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">成员管理</h1>
+      <p class="pp-page-header__desc">创建成员账号、重置初始密码或启停账号。</p>
+    </div>
+    <div class="pp-page-header__actions">
+      <a class="btn btn-primary" href="{% url 'members_admin:create' %}">新建成员</a>
+    </div>
+  </div>
+
+  {% include "includes/manage_tabs.html" %}
+
+  {% if members %}
+    <div class="pp-surface">
+      <div class="pp-surface__body pp-surface__body--flush">
+        <div class="table-responsive">
+          <table class="table pp-table-stack align-middle">
+            <thead>
+              <tr>
+                <th scope="col">账号</th>
+                <th scope="col">姓名</th>
+                <th scope="col">状态</th>
+                <th scope="col" class="pp-num">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for member in members %}
+                <tr>
+                  <td class="pp-cell-lead" data-label="账号">{{ member.account }}</td>
+                  <td data-label="姓名">{{ member.real_name }}</td>
+                  <td data-label="状态">
+                    {% if member.is_active %}
+                      <span class="pp-status pp-status--success">
+                        <span class="pp-status__mark" aria-hidden="true"></span>启用</span>
+                    {% else %}
+                      <span class="pp-status pp-status--neutral">
+                        <span class="pp-status__mark" aria-hidden="true"></span>已停用</span>
+                    {% endif %}
+                  </td>
+                  <td class="pp-num pp-cell-actions" data-label="操作">
+                    <div class="pp-inline-actions" style="justify-content:flex-end;">
+                      <a class="btn btn-sm btn-outline-secondary"
+                         href="{% url 'members_admin:password' member.pk %}">重置密码</a>
+                      <form method="post" action="{% url 'members_admin:toggle' member.pk %}" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                          {% if member.is_active %}停用{% else %}启用{% endif %}
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="pp-surface">
+      <div class="pp-empty">
+        <p class="pp-empty__title">还没有成员账号</p>
+        <p class="pp-empty__desc">新建账号后，管理员才能把任务分配给他。</p>
+        <a class="btn btn-primary" href="{% url 'members_admin:create' %}">新建成员</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

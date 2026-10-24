@@ -59,6 +59,13 @@ def _excel_datetime(value):
     return value
 
 
+def _write_value(cell, value):
+    """写入单元格，并强制公式样式文本按普通字符串保存。"""
+    cell.value = _excel_datetime(value)
+    if isinstance(cell.value, str) and cell.value.startswith(("=", "+", "-", "@")):
+        cell.data_type = "s"
+
+
 def _write_title_block(ws, title: str, report: dict, extra_rows: int = 0):
     """写标题 + 筛选条件 + 口径说明，返回表头所在行号。
 
@@ -157,7 +164,7 @@ def _apply_body_style(ws, first_row: int, last_row: int, col_count: int,
 
 def _sheet_by_member(wb, report: dict):
     ws = wb.create_sheet("按人员汇总")
-    headers = ["学号", "姓名", "工作记录数", "提交版本数",
+    headers = ["账号", "姓名", "工作记录数", "提交版本数",
                "待审核", "退回修改", "审核通过", "逾期提交",
                "图片数", "文件数", "视频数", "链接数"]
     header_row = _write_title_block(ws, "按人员汇总", report)
@@ -166,7 +173,7 @@ def _sheet_by_member(wb, report: dict):
     rows = []
     for item in report["by_member"]:
         rows.append([
-            item["student_id"], item["real_name"],
+            item["account"], item["real_name"],
             item["total_records"], item["version_count"],
             item["pending"], item["needs_revision"], item["approved"], item["overdue"],
             item["image_count"], item["file_count"],
@@ -175,7 +182,7 @@ def _sheet_by_member(wb, report: dict):
 
     for offset, row in enumerate(rows, start=header_row + 1):
         for col, value in enumerate(row, start=1):
-            ws.cell(row=offset, column=col, value=_excel_datetime(value))
+            _write_value(ws.cell(row=offset, column=col), value)
 
     if rows:
         _apply_body_style(ws, header_row + 1, header_row + len(rows), len(headers))
@@ -204,7 +211,7 @@ def _sheet_by_work_type(wb, report: dict):
 
     for offset, row in enumerate(rows, start=header_row + 1):
         for col, value in enumerate(row, start=1):
-            ws.cell(row=offset, column=col, value=_excel_datetime(value))
+            _write_value(ws.cell(row=offset, column=col), value)
 
     if rows:
         _apply_body_style(ws, header_row + 1, header_row + len(rows), len(headers))
@@ -218,7 +225,7 @@ def _sheet_by_work_type(wb, report: dict):
 def _sheet_details(wb, report: dict):
     ws = wb.create_sheet("工作记录明细")
     headers = ["记录编号", "比赛", "任务", "工作类型",
-               "学号", "姓名", "当前状态",
+               "账号", "姓名", "当前状态",
                "记录创建时间", "当前版本号", "版本总数",
                "本版提交时间", "生效截止时间", "是否逾期",
                "最近审核结果", "审核意见", "审核人", "审核时间"]
@@ -229,7 +236,7 @@ def _sheet_details(wb, report: dict):
     for item in report["details"]:
         rows.append([
             item["submission_id"], item["competition_name"], item["task_name"],
-            item["work_type_name"], item["member_student_id"], item["member_name"],
+            item["work_type_name"], item["member_account"], item["member_name"],
             item["status_label"],
             item["created_at"], item["current_version_no"], item["version_count"],
             item["submitted_at"], item["effective_deadline"],
@@ -240,7 +247,7 @@ def _sheet_details(wb, report: dict):
 
     for offset, row in enumerate(rows, start=header_row + 1):
         for col, value in enumerate(row, start=1):
-            ws.cell(row=offset, column=col, value=_excel_datetime(value))
+            _write_value(ws.cell(row=offset, column=col), value)
 
     if rows:
         _apply_body_style(

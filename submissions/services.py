@@ -22,12 +22,13 @@ COS 与数据库不在同一事务内，所以上传流程单独处理失败补�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, time
 
-from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
 from competitions.models import CompetitionStatus
+from core.permissions import user_is_member
 from tasks.models import TaskAssignment
 
 from .models import (
@@ -123,6 +124,9 @@ def assert_can_create_submission(assignment: TaskAssignment, user) -> None:
     if assignment.member_id != user.id:
         raise SubmissionError("该任务没有分配给您，无法提交。")
 
+    if not user_is_member(user):
+        raise SubmissionError("您当前没有干事权限，无法提交工作成果。")
+
     if not assignment.is_active:
         raise SubmissionError("该任务分配已被取消，无法提交。")
 
@@ -150,10 +154,34 @@ def lock_image_usage(user) -> UserImageUsage:
     """行级锁读取（必要时创建）用户的图片用量行。
 
     必须在事务内调用 —— 这是图片配额并发安全的唯一依据。
+    图片配额按自然学期计算：3–8 月为春季学期，9 月至次年 2 月为秋季学期。
+    新周期首次检查配额时，按本周期附件重新核算，历史学期不再占用额度。
     """
     usage, _ = UserImageUsage.objects.get_or_create(user=user)
     # 重新以行级锁取回；get_or_create 本身不加锁
-    return UserImageUsage.objects.select_for_update().get(pk=usage.pk)
+    usage = UserImageUsage.objects.select_for_update().get(pk=usage.pk)
+    period_start = image_quota_period_start()
+    if usage.quota_period_start != period_start.date():
+        usage = UserImageUsage.recalculate_from_attachments(
+            user, since=period_start,
+        )
+        usage = UserImageUsage.objects.select_for_update().get(pk=usage.pk)
+    return usage
+
+
+def image_quota_period_start(now=None):
+    """返回当前图片配额周期的起点（中国高校常用自然学期）。"""
+    current = timezone.localtime(now or timezone.now())
+    if current.month >= 9:
+        start_date = current.date().replace(month=9, day=1)
+    elif current.month >= 3:
+        start_date = current.date().replace(month=3, day=1)
+    else:
+        start_date = current.date().replace(
+            year=current.year - 1, month=9, day=1,
+        )
+    start = datetime.combine(start_date, time.min)
+    return timezone.make_aware(start, timezone.get_current_timezone())
 
 
 def assert_image_quota(usage: UserImageUsage, *, new_count: int, new_bytes: int,
@@ -188,7 +216,9 @@ def apply_image_usage(usage: UserImageUsage, *, new_count: int, new_bytes: int) 
     """配额记账（在事务内、与附件落库一起提交）。"""
     usage.image_count += new_count
     usage.total_bytes += new_bytes
-    usage.save(update_fields=["image_count", "total_bytes", "updated_at"])
+    usage.save(update_fields=[
+        "image_count", "total_bytes", "quota_period_start", "updated_at",
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +382,7 @@ def assert_material_requirements(task, pending_uploads: list[PendingUpload],
         present.add(item.material_type)
 
     missing = []
-    for key in ("text", "image", "file", "link", "video"):
+    for key in ("text", "image", "file", "link"):
         if snapshot.get("require_%s" % key) and key not in present:
             missing.append(MATERIAL_LABELS.get(key, key))
 
@@ -363,7 +393,7 @@ def assert_material_requirements(task, pending_uploads: list[PendingUpload],
 
     # 反向检查：提交了模板不允许的材料
     disallowed = []
-    for key in ("file", "link", "video"):
+    for key in ("file", "link"):
         if key in present and not snapshot.get("allow_%s" % key):
             disallowed.append(MATERIAL_LABELS.get(key, key))
     if disallowed:
@@ -389,22 +419,39 @@ def lock_submission(submission_id: int) -> Submission:
     )
 
 
-def approve_submission(*, submission: Submission, reviewer, comment: str = "",
-                       is_reopen: bool = False, reopen_reason: str = "") -> None:
+def assert_review_permission(user, submission) -> None:
+    """在事务内锁定审核授权行并复核权限。"""
+    if submission.assignment.member_id == user.id:
+        raise SubmissionError("不能审核自己提交的记录。")
+    from competitions.models import ReviewerAssignment
+
+    assignment = (
+        ReviewerAssignment.objects
+        .select_for_update()
+        .filter(
+            competition=submission.competition,
+            reviewer=user,
+            is_active=True,
+        )
+        .first()
+    )
+    if assignment is None:
+        raise SubmissionError("您没有该比赛的审核权限。")
+
+
+def approve_submission(*, submission: Submission, reviewer,
+                       comment: str = "") -> None:
     """审核通过。
 
     调用前提：已在本事务内 lock_submission，且调用方已完成权限校验
     （是授权审核人、且不是提交人本人）。
     """
-    if not is_reopen and submission.status != SubmissionStatus.PENDING:
+    if submission.status != SubmissionStatus.PENDING:
         # 状态已被别人改过 —— 并发冲突，明确告知而不是静默覆盖
         raise SubmissionError(
             "这条记录的状态刚刚被他人更新为「%s」，请刷新页面后重试。"
             % submission.get_status_display()
         )
-    if is_reopen and not submission.is_approved:
-        raise SubmissionError("只有「审核通过」的记录才能发起重新审核。")
-
     version = submission.current_version or submission.latest_version()
     if version is None:
         raise SubmissionError("该记录没有任何提交版本，无法审核。")
@@ -415,9 +462,9 @@ def approve_submission(*, submission: Submission, reviewer, comment: str = "",
 
     _write_review_log(
         submission=submission, version=version, reviewer=reviewer,
-        action="reopen" if is_reopen else "approve",
+        action="approve",
         from_status=from_status, to_status=submission.status,
-        comment=comment, reopen_reason=reopen_reason,
+        comment=comment,
     )
 
 
@@ -443,6 +490,33 @@ def reject_submission(*, submission: Submission, reviewer, comment: str) -> None
         submission=submission, version=version, reviewer=reviewer,
         action="reject", from_status=from_status, to_status=submission.status,
         comment=comment,
+    )
+
+
+def reopen_submission(*, submission: Submission, reviewer,
+                      reason: str, comment: str = "") -> None:
+    """把已通过记录退回待审核，并完整记录本次操作。"""
+    if not submission.is_approved:
+        raise SubmissionError("只有「审核通过」的记录才能发起重新审核。")
+    if not (reason or "").strip():
+        raise SubmissionError("发起重新审核必须填写原因。")
+
+    version = submission.current_version or submission.latest_version()
+    if version is None:
+        raise SubmissionError("该记录没有任何提交版本，无法重新审核。")
+
+    from_status = submission.status
+    submission.status = SubmissionStatus.PENDING
+    submission.save(update_fields=["status", "updated_at"])
+    _write_review_log(
+        submission=submission,
+        version=version,
+        reviewer=reviewer,
+        action="reopen",
+        from_status=from_status,
+        to_status=submission.status,
+        comment=comment,
+        reopen_reason=reason,
     )
 
 

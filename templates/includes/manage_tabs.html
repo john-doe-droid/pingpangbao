@@ -1,0 +1,12 @@
+<nav class="pp-tabs pp-tabs--manage" aria-label="管理工作区">
+  <a class="pp-tabs__link {% if request.path|slice:':20' == '/manage/submissions/' %}is-active{% endif %}"
+     href="{% url 'submissions_admin:list' %}">全部记录</a>
+  <a class="pp-tabs__link {% if request.path|slice:':9' == '/reports/' %}is-active{% endif %}"
+     href="{% url 'reports:page' %}">统计报表</a>
+  <a class="pp-tabs__link {% if '/manage/tasks/templates/' in request.path %}is-active{% endif %}"
+     href="{% url 'tasks_admin:template_list' %}">任务模板</a>
+  <a class="pp-tabs__link {% if '/manage/tasks/work-types/' in request.path %}is-active{% endif %}"
+     href="{% url 'tasks_admin:worktype_list' %}">工作类型</a>
+  <a class="pp-tabs__link {% if request.path|slice:':15' == '/manage/members' %}is-active{% endif %}"
+     href="{% url 'members_admin:list' %}">成员</a>
+</nav>

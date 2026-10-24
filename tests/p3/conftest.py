@@ -95,7 +95,7 @@ def isolated_private_storage(tmp_path, settings):
 def _mk(sid, name, role_code=None, password=P3_PASSWORD, **extra):
     extra.setdefault("must_change_password", False)
     user = User.objects.create_user(
-        student_id=sid, password=password, real_name=name, **extra)
+        account=sid, password=password, real_name=name, **extra)
     user.must_change_password = False
     user.save(update_fields=["must_change_password"])
     if role_code:

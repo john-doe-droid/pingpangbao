@@ -311,7 +311,7 @@ def check_plugin_config():
         "from core.upload_config import get_upload_limits;"
         "L=get_upload_limits();"
         "print(json.dumps({'img':L.image_max_bytes,'file':L.file_max_bytes,"
-        "'video':L.video_max_bytes,'count':L.images_per_user,"
+        "'count':L.images_per_user,"
         "'bytes':L.image_bytes_per_user,'edge':L.image_max_edge,"
         "'quality':L.image_quality,'thumb':L.thumb_edge,"
         "'presign':L.presign_expires_seconds}))"
@@ -326,7 +326,7 @@ def check_plugin_config():
         record("上传上限配置正确", FAIL, "无法解析", out)
         return
     expected = {"img": 10 * 1024 * 1024, "file": 50 * 1024 * 1024,
-                "video": 300 * 1024 * 1024, "count": 50,
+                "count": 50,
                 "bytes": 100 * 1024 * 1024, "edge": 1280, "quality": 82,
                 "thumb": 400, "presign": 300}
     wrong = {k: (cfg.get(k), v) for k, v in expected.items() if cfg.get(k) != v}
@@ -334,7 +334,7 @@ def check_plugin_config():
         record("上传上限配置正确", FAIL, "取值与需求不符：%s" % wrong, out)
     else:
         record("上传上限配置正确", PASS,
-               "图片 10MiB / 文件 50MiB / 视频 300MiB；配额 50 张 100MiB；"
+               "图片 10MiB / 文件 50MiB；配额 50 张 100MiB；"
                "主图 1280 q82；缩略图 400；预签名 300s")
 
 
@@ -431,29 +431,29 @@ def cleanup(mark):
     顺序错了会触发 ProtectedError（本脚本前两版就踩了两次，反而印证约束生效）。
     开头与结尾都调用（开头清上一次的残留）。
     """
-    Attachment.objects.filter(uploaded_by__student_id__startswith=mark).delete()
+    Attachment.objects.filter(uploaded_by__account__startswith=mark).delete()
     Attachment.objects.filter(
-        version__submission__assignment__member__student_id__startswith=mark).delete()
-    SubmissionVersion.objects.filter(submitted_by__student_id__startswith=mark).delete()
+        version__submission__assignment__member__account__startswith=mark).delete()
+    SubmissionVersion.objects.filter(submitted_by__account__startswith=mark).delete()
     SubmissionVersion.objects.filter(
-        submission__assignment__member__student_id__startswith=mark).delete()
+        submission__assignment__member__account__startswith=mark).delete()
     Submission.objects.filter(
-        assignment__member__student_id__startswith=mark).delete()
+        assignment__member__account__startswith=mark).delete()
     ReviewerAssignment.objects.filter(competition__name__startswith="[VF3]").delete()
-    TaskAssignment.objects.filter(member__student_id__startswith=mark).delete()
+    TaskAssignment.objects.filter(member__account__startswith=mark).delete()
     TaskAssignment.objects.filter(
         task__competition__name__startswith="[VF3]").delete()
     CompetitionTask.objects.filter(competition__name__startswith="[VF3]").delete()
     TaskTemplate.objects.filter(name__startswith="[VF3]").delete()
     Competition.objects.filter(name__startswith="[VF3]").delete()
     WorkType.objects.filter(name__startswith="[VF3]").delete()
-    U.objects.filter(student_id__startswith=mark).delete()
+    U.objects.filter(account__startswith=mark).delete()
 
 
 cleanup(MARK)
 
 def mk(sid, name, code=None):
-    u = U.objects.create_user(student_id=sid, password="Vf3!Passw0rd9", real_name=name)
+    u = U.objects.create_user(account=sid, password="Vf3!Passw0rd9", real_name=name)
     u.must_change_password = False; u.save(update_fields=["must_change_password"])
     if code:
         role, _ = Role.objects.get_or_create(code=code, defaults={"name": code})
@@ -935,7 +935,7 @@ def check_pillow_container_deps():
 
 
 def check_nginx_body_size():
-    """Nginx 请求体上限必须能承载 300 MiB 视频。"""
+    """Nginx 请求体上限必须能承载单次提交总上限。"""
     conf = BASE_DIR / "deploy" / "nginx" / "pingpong.conf"
     if not conf.exists():
         record("Nginx 请求体上限", FAIL, "缺少 nginx 配置")
@@ -956,14 +956,14 @@ def check_nginx_body_size():
     else:
         limit = value
 
-    required = 300 * 1024 * 1024
+    required = 100 * 1024 * 1024
     if limit < required:
         record("Nginx 请求体上限", FAIL,
-               "当前 %d%s 小于视频上限 300 MiB，大文件会在反代层被 413 拒绝"
+               "当前 %d%s 小于单次提交上限 100 MiB，文件会在反代层被 413 拒绝"
                % (value, match.group(2)))
     else:
         record("Nginx 请求体上限", PASS,
-               "client_max_body_size = %d%s（≥ 300 MiB 视频上限）"
+               "client_max_body_size = %d%s（≥ 100 MiB 单次提交上限）"
                % (value, match.group(2)))
 
 

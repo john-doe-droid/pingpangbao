@@ -6,7 +6,7 @@ P2 权限测试。
 - 干事不能创建比赛、编辑模板、分配任务
 - 干事只能看到自己的有效任务，改 URL 也不行
 - 未授权者不能管理审核授权
-- **全局查看权不能推导出审核权**
+- **普通登录权不能推导出审核权**
 - 管理员能完成规定范围内的管理操作
 """
 import pytest
@@ -20,9 +20,9 @@ from competitions.permissions import (
     can_view_competition,
     visible_competitions_for,
 )
-from core.permissions import user_can_view_all, user_is_admin
+from core.permissions import user_is_admin
 from tasks.models import TaskAssignment
-from tasks.permissions import assignments_for_member, member_visible_tasks
+from tasks.permissions import assignments_for_member
 
 
 # ===========================================================================
@@ -41,15 +41,14 @@ class TestRoleJudgement:
     def test_superuser_is_admin(self, superuser):
         assert user_is_admin(superuser) is True
 
-    def test_viewer_has_view_but_not_admin(self, viewer_user):
-        assert user_can_view_all(viewer_user) is True
-        assert user_is_admin(viewer_user) is False, "查看权不得等同管理权"
+    def test_authenticated_user_can_view_but_not_admin(self, regular_user):
+        assert regular_user.is_authenticated is True
+        assert user_is_admin(regular_user) is False, "普通查看不得等同管理权"
 
     def test_anonymous_has_nothing(self, db, django_user_model):
         from django.contrib.auth.models import AnonymousUser
         anon = AnonymousUser()
         assert user_is_admin(anon) is False
-        assert user_can_view_all(anon) is False
 
     def test_multiple_roles_supported(self, member_user, role_admin):
         """一个用户可同时是干事和管理员（多重身份）。"""
@@ -77,9 +76,9 @@ class TestCompetitionPermissions:
         assert can_view_competition(admin_user, draft_competition) is True
 
     def test_active_visible_to_all_logged_in(self, active_competition, member_user,
-                                             viewer_user):
+                                             regular_user):
         assert can_view_competition(member_user, active_competition) is True
-        assert can_view_competition(viewer_user, active_competition) is True
+        assert can_view_competition(regular_user, active_competition) is True
 
     def test_archived_still_visible(self, archived_competition, member_user):
         assert can_view_competition(member_user, archived_competition) is True
@@ -100,8 +99,8 @@ class TestCompetitionPermissions:
     def test_member_cannot_manage(self, active_competition, member_user):
         assert can_manage_competition(member_user, active_competition) is False
 
-    def test_viewer_cannot_manage(self, active_competition, viewer_user):
-        assert can_manage_competition(viewer_user, active_competition) is False
+    def test_regular_user_cannot_manage(self, active_competition, regular_user):
+        assert can_manage_competition(regular_user, active_competition) is False
 
 
 # ===========================================================================
@@ -116,10 +115,9 @@ class TestReviewPermissionIsolation:
         assert user_is_admin(admin_user) is True
         assert can_review_competition(admin_user, active_competition) is False
 
-    def test_viewer_without_grant_cannot_review(self, active_competition, viewer_user):
-        """全局查看权不推导审核权。"""
-        assert user_can_view_all(viewer_user) is True
-        assert can_review_competition(viewer_user, active_competition) is False
+    def test_user_without_grant_cannot_review(self, active_competition, regular_user):
+        """普通登录身份不推导审核权。"""
+        assert can_review_competition(regular_user, active_competition) is False
 
     def test_superuser_without_grant_cannot_review(self, active_competition, superuser):
         assert can_review_competition(superuser, active_competition) is False
@@ -174,14 +172,10 @@ class TestMemberTaskIsolation:
         a.deactivate()
         assert assignments_for_member(member_user).count() == 0
 
-    def test_visible_tasks_empty_without_assignment(self, task, other_member):
-        assert member_visible_tasks(other_member).count() == 0
-
     def test_anonymous_gets_nothing(self, db, task):
         from django.contrib.auth.models import AnonymousUser
         anon = AnonymousUser()
         assert assignments_for_member(anon).count() == 0
-        assert member_visible_tasks(anon).count() == 0
 
 
 # ===========================================================================
@@ -271,8 +265,8 @@ class TestViewPermissions:
         own = client.get(reverse("tasks:my_task_detail", args=[task.pk]))
         assert own.status_code == 200
 
-    def test_viewer_cannot_manage(self, logged_in_client, viewer_user):
-        client = logged_in_client.as_(viewer_user)
+    def test_regular_user_cannot_manage(self, logged_in_client, regular_user):
+        client = logged_in_client.as_(regular_user)
         assert client.get(reverse("competitions:create")).status_code == 403
         assert client.get(reverse("tasks_admin:template_list")).status_code == 403
 
@@ -286,7 +280,7 @@ class TestViewPermissions:
 
         from django.contrib.auth import get_user_model
         intruder = get_user_model().objects.create_user(
-            student_id="M0003", password="P2TestPassw0rd!2026", real_name="闯入者")
+            account="M0003", password="P2TestPassw0rd!2026", real_name="闯入者")
         intruder.must_change_password = False
         intruder.save(update_fields=["must_change_password"])
 
@@ -304,7 +298,7 @@ class TestViewPermissions:
     def test_member_my_tasks_excludes_others(self, logged_in_client, make_task,
                                              make_template, member_user, other_member,
                                              make_assignment, template):
-        own = make_assignment(make_task(template, name="我的任务"), member_user)
+        make_assignment(make_task(template, name="我的任务"), member_user)
         other_template = make_template(name="别人的模板")
         make_assignment(make_task(other_template, name="别人的任务"), other_member)
 
@@ -312,7 +306,7 @@ class TestViewPermissions:
         resp = client.get(reverse("tasks:my_tasks"))
         body = resp.content.decode("utf-8")
 
-        assert "我的任务" in body
+        assert "我的工作" in body
         assert "别人的任务" not in body, "不得出现他人的任务"
 
     # --- 审核授权管理 ---
@@ -323,9 +317,9 @@ class TestViewPermissions:
         resp = client.get(reverse("competitions:reviewers", args=[active_competition.pk]))
         assert resp.status_code == 403
 
-    def test_viewer_cannot_manage_reviewers(self, logged_in_client, viewer_user,
+    def test_regular_user_cannot_manage_reviewers(self, logged_in_client, regular_user,
                                             active_competition):
-        client = logged_in_client.as_(viewer_user)
+        client = logged_in_client.as_(regular_user)
         resp = client.get(reverse("competitions:reviewers", args=[active_competition.pk]))
         assert resp.status_code == 403
 

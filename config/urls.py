@@ -5,7 +5,7 @@ config 顶层路由。
     /accounts/            登录 / 退出 / 改密
     /health/              健康检查
     /competitions/        比赛管理（P2）
-    /tasks/               干事端「我的任务」（P2）
+    /my/tasks/            干事端「我的工作」（P2）
     /manage/tasks/        任务配置管理端（P2）
     /admin/               Django 管理后台（建账号、应急运维）
 
@@ -18,6 +18,7 @@ from django.urls import include, path
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
+    path("manage/members/", include("accounts.manage_urls")),
     path("competitions/", include("competitions.urls")),
     # 干事端：/my/tasks/...（查询层面只返回本人任务，无管理入口）
     path("my/tasks/", include("tasks.urls")),

@@ -11,7 +11,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from reports import statistics
-from reports.filters import ReportFilters, build_filtered_queryset, parse_filters
+from reports.filters import ReportFilters, parse_filters
 from submissions.models import SubmissionStatus
 
 
@@ -36,8 +36,8 @@ class TestCountingRule:
 
         # 逐条核对人数与版本数的关系
         rows = statistics.by_member(report_admin, ReportFilters())
-        m1_sid = rich_dataset["members"][0].student_id
-        m1_row = next(r for r in rows if r["student_id"] == m1_sid)
+        m1_sid = rich_dataset["members"][0].account
+        m1_row = next(r for r in rows if r["account"] == m1_sid)
         assert m1_row["version_count"] > m1_row["total_records"], (
             "版本数应大于记录数，证明没有把版本当记录计数"
         )
@@ -76,8 +76,8 @@ class TestCountingRule:
     def test_member_row_shows_both_numbers(self, rich_dataset, report_admin):
         """按人员汇总里，记录数与版本数分别列示，便于交叉核对。"""
         rows = statistics.by_member(report_admin, ReportFilters())
-        m1_sid = rich_dataset["members"][0].student_id
-        m1_row = next(r for r in rows if r["student_id"] == m1_sid)
+        m1_sid = rich_dataset["members"][0].account
+        m1_row = next(r for r in rows if r["account"] == m1_sid)
 
         assert m1_row["total_records"] == 2       # 海报 1 条 + 推文 1 条
         assert m1_row["version_count"] == 4       # 海报 3 版 + 推文 1 版
@@ -138,7 +138,7 @@ class TestFiltering:
         report = statistics.build_report(report_admin, f)
         assert report["summary"]["total_records"] == 1
         rows = statistics.details(report_admin, f)
-        assert all(r["member_student_id"] == m2.student_id for r in rows)
+        assert all(r["member_account"] == m2.account for r in rows)
 
     def test_filter_by_status(self, rich_dataset, report_admin):
         f = ReportFilters(status=SubmissionStatus.APPROVED.value)
@@ -364,3 +364,20 @@ class TestExcelExport:
 
         name = excel.suggested_filename(at=datetime(2026, 10, 20, 9, 30))
         assert name.endswith(".xlsx") and "20261020-0930" in name
+
+
+@pytest.mark.django_db
+def test_formula_like_member_name_is_exported_as_text(rich_dataset, report_admin):
+    import io
+
+    from openpyxl import load_workbook
+
+    from reports import excel
+
+    report = statistics.build_report(report_admin, ReportFilters())
+    report["details"][0]["member_name"] = '=HYPERLINK("https://example.com","x")'
+    data = excel.render_xlsx_bytes(report)
+    ws = load_workbook(io.BytesIO(data), data_only=False)["工作记录明细"]
+    cell = ws.cell(row=8, column=6)
+    assert cell.value.startswith("=HYPERLINK")
+    assert cell.data_type == "s", "用户数据不得被 Excel 解释为公式"

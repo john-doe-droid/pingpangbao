@@ -122,7 +122,7 @@ class TestPageExportConsistency:
         data = client.get(reverse("reports:export"), params).content
         wb = load_workbook(io.BytesIO(data))
         details, _ = _sheet_rows(wb, "工作记录明细", "记录编号")
-        by_member, _ = _sheet_rows(wb, "按人员汇总", "学号")
+        by_member, _ = _sheet_rows(wb, "按人员汇总", "账号")
 
         assert len(details) == sum(r["工作记录数"] or 0 for r in by_member) == 2
 
@@ -162,7 +162,7 @@ class TestExportResponse:
         wb = load_workbook(io.BytesIO(data))
         details, _ = _sheet_rows(wb, "工作记录明细", "记录编号")
         assert len(details) == 1
-        assert details[0]["学号"] == member.student_id
+        assert details[0]["账号"] == member.account
 
 
 # ===========================================================================
@@ -228,9 +228,9 @@ class TestReportPermissions:
         from reports import statistics
 
         rows = statistics.by_member(p3_admin, ReportFilters())
-        sids = {r["student_id"] for r in rows}
-        assert p3_member.student_id in sids
-        assert p3_member2.student_id in sids
+        sids = {r["account"] for r in rows}
+        assert p3_member.account in sids
+        assert p3_member2.account in sids
 
         client = report_client.as_(p3_admin)
         assert client.get(reverse("reports:page")).status_code == 200
@@ -254,7 +254,7 @@ class TestFilterOptionsScope:
 
         # 另造一场该干事完全无关的草稿比赛
         outsider_user = get_user_model().objects.create_user(
-            student_id="P4R-OUT", password="P4!Passw0rd9", real_name="无关人")
+            account="P4R-OUT", password="P4!Passw0rd9", real_name="无关人")
         outsider_user.must_change_password = False
         outsider_user.save(update_fields=["must_change_password"])
         role, _ = Role.objects.get_or_create(code="club_admin", defaults={"name": "社团管理员"})

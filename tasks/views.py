@@ -9,12 +9,11 @@ tasks 视图：工作类型、模板、比赛任务、人员分配，以及干�
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from competitions.models import Competition
-from competitions.permissions import can_manage_reviewers, can_manage_competition
 from core.audit import log_action
 from core.permissions import admin_required, login_required_view, user_is_admin
 
@@ -44,7 +43,7 @@ from .permissions import (
 
 @admin_required
 def worktype_list(request):
-    """工作类型列表（管理员可维护，其他用户只读）。"""
+    """工作类型列表（仅管理员可进入和维护）。"""
     worktypes = WorkType.objects.annotate(
         template_count=Count("templates", distinct=True),
     ).order_by("sort_order", "name")
@@ -315,7 +314,7 @@ def task_detail(request, pk):
     assignments = (
         task.assignments.filter(is_active=True)
         .select_related("member", "assigned_by")
-        .order_by("member__student_id")
+        .order_by("member__account")
     )
 
     return render(request, "tasks/task_detail.html", {
@@ -446,7 +445,7 @@ def assignment_deactivate(request, pk):
     if changed:
         messages.success(
             request,
-            "已取消 %s 的该任务分配。该干事不再在「我的任务」中看到它，"
+            "已取消 %s 的该任务分配。该干事不再在「我的工作」中看到它，"
             "但历史记录已保留。" % assignment.member.get_short_name(),
         )
     else:
@@ -455,12 +454,12 @@ def assignment_deactivate(request, pk):
 
 
 # ===========================================================================
-# 干事端：我的任务
+# 干事端：我的工作
 # ===========================================================================
 
 @login_required_view
 def my_tasks(request):
-    """我的任务列表。
+    """我的工作待办列表。
 
     数据来源严格限定为 assignments_for_member(request.user)，
     从查询层面保证看不到别人的任务 —— 不依赖模板里的条件判断。
@@ -473,37 +472,88 @@ def my_tasks(request):
 
     assignments = list(assignments_for_member(request.user))
     # 局部导入：submissions 依赖 tasks，模块级互相导入会成环
-    from submissions.models import Submission
+    from django.urls import reverse
+
+    from submissions.models import Submission, SubmissionStatus
 
     now_rows = []
+    submissions = list(
+        Submission.objects
+        .filter(assignment__in=assignments)
+        .select_related("current_version")
+        .order_by("-created_at", "-id")
+    )
+    submissions_by_assignment = {}
+    for submission in submissions:
+        submissions_by_assignment.setdefault(submission.assignment_id, []).append(submission)
+
     for assignment in assignments:
         task = assignment.task
-        # 提交额度：让干事在"我的任务"就能看到还能交几份并直接提交，
-        # 不必先去"我的工作记录"绕一圈（P6 简化）。
-        used = Submission.objects.filter(assignment=assignment).count()
+        assignment_submissions = submissions_by_assignment.get(assignment.id, [])
+        used = len(assignment_submissions)
         limit = task.max_records_per_member
+        remaining = max(limit - used, 0)
+        revision = next(
+            (
+                item for item in assignment_submissions
+                if item.status == SubmissionStatus.NEEDS_REVISION
+            ),
+            None,
+        )
+        latest = assignment_submissions[0] if assignment_submissions else None
+        is_overdue = task.is_overdue()
+
+        if revision is not None:
+            status_kind, status_label = "danger", "待修改"
+            action_label = "修改并重提"
+            action_url = reverse("submissions:submit_revision", args=[revision.pk])
+        elif remaining:
+            status_kind = "danger" if is_overdue else "info"
+            status_label = "已逾期，待提交" if is_overdue else "待提交"
+            action_label = "提交成果"
+            action_url = reverse("submissions:submit_new", args=[task.pk])
+        elif latest is not None and latest.status == SubmissionStatus.PENDING:
+            status_kind, status_label = "warning", "待审核"
+            action_label = "查看记录"
+            action_url = reverse("submissions:detail", args=[latest.pk])
+        elif latest is not None and latest.status == SubmissionStatus.APPROVED:
+            status_kind, status_label = "success", "已完成"
+            action_label = "查看记录"
+            action_url = reverse("submissions:detail", args=[latest.pk])
+        else:
+            status_kind, status_label = "neutral", "已提交"
+            action_label = "查看记录"
+            action_url = reverse("submissions:my_submissions")
+
         now_rows.append({
             "assignment": assignment,
             "task": task,
             "competition": task.competition,
-            "is_overdue": task.is_overdue(),
+            "is_overdue": is_overdue,
             "effective_deadline": task.effective_deadline,
             "used": used,
             "limit": limit,
-            "remaining": max(limit - used, 0),
+            "remaining": remaining,
+            "needs_action": bool(revision is not None or remaining),
+            "status_kind": status_kind,
+            "status_label": status_label,
+            "action_label": action_label,
+            "action_url": action_url,
         })
 
     return render(request, "tasks/my_tasks.html", {
         "rows": now_rows,
         "total": len(now_rows),
-        "overdue_count": sum(1 for r in now_rows if r["is_overdue"]),
-        "page_title": "我的任务",
+        "overdue_count": sum(
+            1 for r in now_rows if r["is_overdue"] and r["needs_action"]
+        ),
+        "page_title": "我的工作",
     })
 
 
 @login_required_view
 def my_task_detail(request, task_pk):
-    """我的任务详情。
+    """我的工作任务详情。
 
     对象级校验：只有被分配了该任务的干事（或管理员）能打开。
     直接改 URL 里的 task_pk 会得到 403，而不是别人的任务内容。
@@ -514,22 +564,38 @@ def my_task_detail(request, task_pk):
         pk=task_pk,
     )
 
-    assignment = TaskAssignment.objects.filter(
-        task=task, member=request.user, is_active=True,
-    ).select_related("assigned_by").first()
+    assignment = (
+        assignments_for_member(request.user)
+        .filter(task=task)
+        .select_related("assigned_by")
+        .first()
+    )
 
     is_admin = user_is_admin(request.user)
     if assignment is None and not is_admin:
         raise PermissionDenied("该任务没有分配给您。")
 
     # 提交额度：详情页也要能直接提交，不用先回列表页（P6 简化）
-    from submissions.models import Submission
+    from submissions.models import Submission, SubmissionStatus
 
     used = limit = remaining = 0
+    revision_submission = None
+    can_submit_new = False
     if assignment is not None:
-        used = Submission.objects.filter(assignment=assignment).count()
+        assignment_submissions = list(
+            Submission.objects.filter(assignment=assignment).order_by("-created_at", "-id")
+        )
+        used = len(assignment_submissions)
         limit = task.max_records_per_member
         remaining = max(limit - used, 0)
+        revision_submission = next(
+            (
+                item for item in assignment_submissions
+                if item.status == SubmissionStatus.NEEDS_REVISION
+            ),
+            None,
+        )
+        can_submit_new = bool(remaining and task.competition.is_active)
 
     return render(request, "tasks/my_task_detail.html", {
         "task": task,
@@ -542,5 +608,7 @@ def my_task_detail(request, task_pk):
         "used": used,
         "limit": limit,
         "remaining": remaining,
+        "revision_submission": revision_submission,
+        "can_submit_new": can_submit_new,
         "page_title": task.name,
     })

@@ -55,6 +55,35 @@ class TaskTemplateForm(forms.ModelForm):
     这里做表单级校验，模型 clean 里再做一道（供非表单路径使用）。
     """
 
+    MATERIAL_CHOICES = (
+        ("none", "不需要"),
+        ("optional", "选填"),
+        ("required", "必交"),
+    )
+    MATERIAL_ROWS = (
+        ("text", "文字说明", "text_requirement"),
+        ("image", "图片证明", "image_requirement"),
+        ("file", "文件附件", "file_requirement"),
+        ("link", "作品链接", "link_requirement"),
+    )
+
+    text_requirement = forms.ChoiceField(
+        label="文字说明要求", choices=MATERIAL_CHOICES, required=False,
+        widget=forms.RadioSelect(),
+    )
+    image_requirement = forms.ChoiceField(
+        label="图片证明要求", choices=MATERIAL_CHOICES, required=False,
+        widget=forms.RadioSelect(),
+    )
+    file_requirement = forms.ChoiceField(
+        label="文件附件要求", choices=MATERIAL_CHOICES, required=False,
+        widget=forms.RadioSelect(),
+    )
+    link_requirement = forms.ChoiceField(
+        label="作品链接要求", choices=MATERIAL_CHOICES, required=False,
+        widget=forms.RadioSelect(),
+    )
+
     class Meta:
         model = TaskTemplate
         fields = [
@@ -63,7 +92,6 @@ class TaskTemplateForm(forms.ModelForm):
             "allow_image", "require_image",
             "allow_file", "require_file",
             "allow_link", "require_link",
-            "allow_video", "require_video",
             "max_records_per_member",
         ]
         widgets = {
@@ -92,9 +120,18 @@ class TaskTemplateForm(forms.ModelForm):
             ).distinct()
         else:
             self.fields["work_type"].queryset = active_qs
-        for field in self.fields:
-            if field.startswith(("allow_", "require_")):
-                self.fields[field].widget.attrs["class"] = "form-check-input"
+        for key, _label, field_name in self.MATERIAL_ROWS:
+            allow = bool(getattr(self.instance, "allow_%s" % key, False))
+            require = bool(getattr(self.instance, "require_%s" % key, False))
+            self.fields[field_name].initial = (
+                "required" if require else "optional" if allow else "none"
+            )
+            self.fields[field_name].widget.attrs["class"] = "pp-choice-input"
+
+        self.material_choice_rows = [
+            (label, self[field_name])
+            for _key, label, field_name in self.MATERIAL_ROWS
+        ]
 
     def clean_max_records_per_member(self):
         count = self.cleaned_data.get("max_records_per_member")
@@ -106,16 +143,28 @@ class TaskTemplateForm(forms.ModelForm):
         cleaned = super().clean()
         labels = {
             "text": "文字说明", "image": "图片证明", "file": "文件附件",
-            "link": "作品链接", "video": "视频",
+            "link": "作品链接",
         }
         for key, label in labels.items():
-            allow = cleaned.get("allow_%s" % key)
-            require = cleaned.get("require_%s" % key)
+            mode = ""
+            if key in {row[0] for row in self.MATERIAL_ROWS}:
+                mode = (self.data.get("%s_requirement" % key) or "").strip()
+
+            if mode in {"none", "optional", "required"}:
+                allow = mode != "none"
+                require = mode == "required"
+                cleaned["allow_%s" % key] = allow
+                cleaned["require_%s" % key] = require
+            else:
+                allow = bool(cleaned.get("allow_%s" % key))
+                require = bool(cleaned.get("require_%s" % key))
+
             if require and not allow:
                 self.add_error(
                     "allow_%s" % key,
                     "「%s」被设为必填，必须同时勾选允许提交。" % label,
                 )
+
         return cleaned
 
 
@@ -255,7 +304,7 @@ class TaskAssignmentForm(forms.Form):
             User.objects
             .filter(is_active=True, roles__code=ROLE_MEMBER, roles__is_active=True)
             .distinct()
-            .order_by("student_id")
+            .order_by("account")
         )
         if task is not None:
             already = TaskAssignment.objects.filter(
@@ -264,7 +313,7 @@ class TaskAssignmentForm(forms.Form):
             candidates = candidates.exclude(pk__in=list(already))
         self.fields["members"].queryset = candidates
         self.fields["members"].label_from_instance = \
-            lambda u: "%s（%s）" % (u.real_name, u.student_id)
+            lambda u: "%s（%s）" % (u.real_name, u.account)
 
     def clean_members(self):
         members = self.cleaned_data.get("members")
@@ -293,7 +342,7 @@ class ReviewerAssignmentForm(forms.Form):
 
         from competitions.models import ReviewerAssignment
 
-        candidates = User.objects.filter(is_active=True).order_by("student_id")
+        candidates = User.objects.filter(is_active=True).order_by("account")
         if competition is not None:
             already = ReviewerAssignment.objects.filter(
                 competition=competition, is_active=True
@@ -301,7 +350,7 @@ class ReviewerAssignmentForm(forms.Form):
             candidates = candidates.exclude(pk__in=list(already))
         self.fields["reviewers"].queryset = candidates
         self.fields["reviewers"].label_from_instance = \
-            lambda u: "%s（%s）" % (u.real_name, u.student_id)
+            lambda u: "%s（%s）" % (u.real_name, u.account)
 
     def clean_reviewers(self):
         reviewers = self.cleaned_data.get("reviewers")

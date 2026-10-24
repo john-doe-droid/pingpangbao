@@ -58,7 +58,7 @@ def get(opener, path, follow=True):
         return e.code, e.read(), e
 
 
-def login(opener, student_id, password):
+def login(opener, account, password):
     status, body, _ = get(opener, "/accounts/login/")
     text = body.decode("utf-8", "replace")
     m = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', text)
@@ -66,7 +66,7 @@ def login(opener, student_id, password):
         return False, "登录页无 CSRF token"
     data = urllib.parse.urlencode({
         "csrfmiddlewaretoken": m.group(1),
-        "username": student_id, "password": password,
+        "username": account, "password": password,
     }).encode()
     req = urllib.request.Request(BASE + "/accounts/login/", data=data)
     req.add_header("Referer", BASE + "/accounts/login/")
@@ -141,7 +141,7 @@ def main():
           wb.sheetnames == ["按人员汇总", "按工作类型汇总", "工作记录明细"],
           str(wb.sheetnames))
 
-    by_member, _ = sheet_rows(wb, "按人员汇总", "学号")
+    by_member, _ = sheet_rows(wb, "按人员汇总", "账号")
     by_type, _ = sheet_rows(wb, "按工作类型汇总", "工作类型")
     details, _ = sheet_rows(wb, "工作记录明细", "记录编号")
     print("      按人员 %d 行 / 按类型 %d 行 / 明细 %d 行"
@@ -215,13 +215,13 @@ def main():
     status, data5, _r = get(member, "/reports/export/")
     check("干事可导出自己的", status == 200, "HTTP %s" % status)
     wb5 = load_workbook(io.BytesIO(data5))
-    bm5, _ = sheet_rows(wb5, "按人员汇总", "学号")
-    ids = {r.get("学号") for r in bm5}
-    check("干事导出只含本人", ids == {"P4-M1"}, "学号集合=%s" % ids)
+    bm5, _ = sheet_rows(wb5, "按人员汇总", "账号")
+    ids = {r.get("账号") for r in bm5}
+    check("干事导出只含本人", ids == {"P4-M1"}, "账号集合=%s" % ids)
 
     d5, _ = sheet_rows(wb5, "工作记录明细", "记录编号")
-    member_ids = {r.get("学号") for r in d5}
-    check("明细也只含本人", member_ids <= {"P4-M1"}, "学号集合=%s" % member_ids)
+    member_ids = {r.get("账号") for r in d5}
+    check("明细也只含本人", member_ids <= {"P4-M1"}, "账号集合=%s" % member_ids)
 
     # 干事尝试筛别人 —— 不应有数据泄露
     status, data6, _r = get(member, "/reports/export/?member=99999")

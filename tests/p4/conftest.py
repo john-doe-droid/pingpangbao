@@ -121,7 +121,7 @@ def fake_files():
 def report_admin(db):
     """报表用的管理员（club_admin 角色，非 superuser）。"""
     user = User.objects.create_user(
-        student_id="P4R-ADM", password="P4Report!Pass9", real_name="报表管理员")
+        account="P4R-ADM", password="P4Report!Pass9", real_name="报表管理员")
     user.must_change_password = False
     user.save(update_fields=["must_change_password"])
     role, _ = Role.objects.get_or_create(code="club_admin",

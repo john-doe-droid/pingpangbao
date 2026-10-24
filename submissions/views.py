@@ -8,9 +8,14 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods
 
-from core.permissions import admin_required, login_required_view, user_is_admin
+from core.permissions import (
+    admin_required,
+    login_required_view,
+    user_is_admin,
+    user_is_member,
+)
 from tasks.permissions import assignments_for_member
 
 from . import orchestration, services
@@ -20,7 +25,6 @@ from .permissions import (
     can_reopen_submission,
     can_review_submission,
     can_view_attachment,
-    visible_submissions_for,
 )
 
 
@@ -30,7 +34,7 @@ from .permissions import (
 
 @login_required_view
 def my_submissions(request):
-    """我的工作记录列表。
+    """我的提交列表。
 
     数据来源限定为本人（查询层面隔离），不依赖模板条件。
     """
@@ -46,34 +50,21 @@ def my_submissions(request):
 
     rows = []
     for sub in submissions:
-        limit = sub.assignment.task.max_records_per_member
         rows.append({
             "submission": sub,
             "task": sub.task,
             "competition": sub.competition,
             "version": sub.current_version or sub.latest_version(),
-            "limit": limit,
-        })
-
-    # 同时展示"还能提交几条"，让干事清楚剩余额度
-    task_rows = []
-    for assignment in assignments_for_member(request.user).select_related(
-        "task", "task__competition", "task__work_type"
-    ):
-        used = Submission.objects.filter(assignment=assignment).count()
-        task_rows.append({
-            "assignment": assignment,
-            "task": assignment.task,
-            "competition": assignment.task.competition,
-            "used": used,
-            "limit": assignment.task.max_records_per_member,
-            "remaining": max(assignment.task.max_records_per_member - used, 0),
+            "can_revise": bool(
+                sub.can_be_revised
+                and sub.assignment.is_active
+                and user_is_member(request.user)
+            ),
         })
 
     return render(request, "submissions/my_submissions.html", {
         "rows": rows,
-        "task_rows": task_rows,
-        "page_title": "我的工作记录",
+        "page_title": "我的提交",
     })
 
 
@@ -145,6 +136,8 @@ def submit_revision(request, pk):
 
     if submission.assignment.member_id != request.user.id:
         raise PermissionDenied("这不是您的工作记录，无法修改。")
+    if not submission.assignment.is_active or not user_is_member(request.user):
+        raise PermissionDenied("该任务分配或干事权限已失效，不能继续修改。")
     if not submission.can_be_revised:
         messages.error(
             request,
@@ -229,12 +222,20 @@ def submission_detail(request, pk):
     )
 
     is_owner = submission.assignment.member_id == request.user.id
+    can_revise = bool(
+        is_owner
+        and submission.can_be_revised
+        and submission.assignment.is_active
+        and user_is_member(request.user)
+    )
 
     return render(request, "submissions/submission_detail.html", {
         "submission": submission,
+        "competition": submission.competition,
         "versions": versions,
         "review_logs": review_logs,
         "is_owner": is_owner,
+        "can_revise": can_revise,
         "can_review": can_review_submission(request.user, submission),
         "can_reopen": can_reopen_submission(request.user, submission),
         "latest": submission.latest_version(),
@@ -351,6 +352,7 @@ def review_submission(request, pk):
             try:
                 with transaction.atomic():
                     locked = services.lock_submission(submission.pk)
+                    services.assert_review_permission(request.user, locked)
                     if action == "approve":
                         services.approve_submission(
                             submission=locked, reviewer=request.user, comment=comment,
@@ -417,22 +419,12 @@ def reopen_submission(request, pk):
             try:
                 with transaction.atomic():
                     locked = services.lock_submission(submission.pk)
-                    # 发起重新审核：状态回到待审核，历史审核记录保留
-                    from reviews.models import ReviewLog
-
-                    from_status = locked.status
-                    version = locked.current_version or locked.latest_version()
-                    locked.status = SubmissionStatus.PENDING
-                    locked.save(update_fields=["status", "updated_at"])
-                    ReviewLog.objects.create(
+                    services.assert_review_permission(request.user, locked)
+                    services.reopen_submission(
                         submission=locked,
-                        version=version,
-                        action="reopen",
-                        from_status=from_status,
-                        to_status=locked.status,
-                        comment=form.cleaned_data.get("comment", ""),
-                        reopen_reason=form.cleaned_data["reopen_reason"],
                         reviewer=request.user,
+                        reason=form.cleaned_data["reopen_reason"],
+                        comment=form.cleaned_data.get("comment", ""),
                     )
             except services.SubmissionError as exc:
                 messages.error(request, str(exc))
@@ -517,5 +509,5 @@ def manage_submissions(request):
         "current_competition": competition_id,
         "current_status": status_filter,
         "orphan_count": OrphanObject.objects.filter(resolved=False).count(),
-        "page_title": "工作记录管理",
+        "page_title": "全部记录",
     })

@@ -7,9 +7,8 @@
     审核权（review）  ← 只能来自 ReviewerAssignment 显式授权，不继承管理权
     查看权（view）    ← 非草稿比赛对已登录用户可见；草稿仅管理员可见
 
-「全局查看权限不能自动推导出审核权限」这句话在这里被具体化：
-user_can_view_all() 为真**不代表** can_review_competition() 为真，
-后者必须查 ReviewerAssignment 表。
+普通登录身份**不代表** can_review_competition() 为真；后者必须查
+ReviewerAssignment 表。
 """
 from core.permissions import ROLE_ADMIN, user_is_admin
 

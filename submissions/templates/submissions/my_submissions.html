@@ -1,21 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}我的工作记录 · {{ SITE_NAME }}{% endblock %}
+{% block title %}我的提交 · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
 <div class="container pp-container">
 
   <div class="pp-page-header">
     <div class="pp-page-header__main">
-      <h1 class="pp-page-title">我的工作记录</h1>
+      <h1 class="pp-page-title">我的提交</h1>
       <p class="pp-page-header__desc">
-        你提交过的内容与审核结果都在这里。提交新成果请到「我的任务」。
+        查看审核结果、退回意见和历史版本。
       </p>
     </div>
     <div class="pp-page-header__actions">
-      <a class="btn btn-primary" href="{% url 'tasks:my_tasks' %}">去我的任务提交</a>
+      <a class="btn btn-primary" href="{% url 'tasks:my_tasks' %}">提交新成果</a>
     </div>
   </div>
+
+  {% include "includes/work_tabs.html" with active_tab="submissions" %}
 
   {% if rows %}
     <div class="pp-surface">
@@ -60,8 +62,13 @@
                     第 {{ row.version.version_no|default:1 }} 版
                   </td>
                   <td class="pp-num pp-cell-actions" data-label="操作">
-                    <a class="btn btn-sm btn-outline-secondary"
-                       href="{% url 'submissions:detail' row.submission.pk %}">查看</a>
+                    {% if row.can_revise %}
+                      <a class="btn btn-sm btn-primary"
+                         href="{% url 'submissions:submit_revision' row.submission.pk %}">修改并重提</a>
+                    {% else %}
+                      <a class="btn btn-sm btn-outline-secondary"
+                         href="{% url 'submissions:detail' row.submission.pk %}">查看</a>
+                    {% endif %}
                   </td>
                 </tr>
               {% endfor %}
@@ -74,8 +81,8 @@
     <div class="pp-surface">
       <div class="pp-empty">
         <p class="pp-empty__title">还没有提交过工作记录</p>
-        <p class="pp-empty__desc">去「我的任务」里选一项开始提交。</p>
-        <a class="btn btn-primary" href="{% url 'tasks:my_tasks' %}">去我的任务</a>
+        <p class="pp-empty__desc">去「待办任务」里选一项开始提交。</p>
+        <a class="btn btn-primary" href="{% url 'tasks:my_tasks' %}">查看待办任务</a>
       </div>
     </div>
   {% endif %}

@@ -8,8 +8,11 @@
 包含改密页自身、退出登录、健康检查与静态资源。
 """
 from django.conf import settings
+from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse
+
+from .security import session_security_version_matches
 
 
 class ForcePasswordChangeMiddleware:
@@ -21,6 +24,18 @@ class ForcePasswordChangeMiddleware:
 
     def __call__(self, request):
         user = getattr(request, "user", None)
+
+        # 密码被重置、账号被停用或重新启用后，旧会话立即失效。
+        # 升级后第一次访问也会要求重新登录，以建立版本标记。
+        if (
+            user is not None
+            and user.is_authenticated
+            and not session_security_version_matches(request, user)
+        ):
+            logout(request)
+            if request.path.startswith("/health/"):
+                return self.get_response(request)
+            return redirect(reverse("accounts:login"))
 
         if (
             user is not None

@@ -112,7 +112,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.site_context",
-                "core.context_processors.welcome_tour",
+                "core.context_processors.navigation_context",
             ],
         },
     },
@@ -127,8 +127,7 @@ ASGI_APPLICATION = "config.asgi.application"
 AUTH_USER_MODEL = "accounts.User"
 
 AUTHENTICATION_BACKENDS = [
-    "accounts.backends.StudentIDBackend",
-    "django.contrib.auth.backends.ModelBackend",
+    "accounts.backends.AccountBackend",
 ]
 
 LOGIN_URL = "accounts:login"
@@ -195,6 +194,13 @@ PASSWORD_CHANGE_REQUIRED_EXEMPT_PREFIXES = [
 # 站点元信息（模板使用）
 SITE_NAME = env("SITE_NAME", "中国农业大学乒乓球社工作统计")
 
+# 登录失败限流：按“账号 + 可信来源 IP”计数。
+LOGIN_RATE_LIMIT_ATTEMPTS = int(env("LOGIN_RATE_LIMIT_ATTEMPTS", "5"))
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = int(env("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "900"))
+LOGIN_RATE_LIMIT_LOCK_SECONDS = int(env("LOGIN_RATE_LIMIT_LOCK_SECONDS", "300"))
+# 仅当应用确实位于受信任反向代理之后时启用；直接暴露 8000 时必须关闭。
+TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
+
 # ---------------------------------------------------------------------------
 # P3：上传与配额上限（集中配置，视图里不再写死数字）
 # 生产可用环境变量覆盖，见 .env.example
@@ -203,7 +209,6 @@ UPLOAD_LIMITS = {
     # 单文件输入上限（作用于用户上传的原始文件）
     "image_max_bytes": int(env("UPLOAD_IMAGE_MAX_BYTES", str(10 * 1024 * 1024))),
     "file_max_bytes": int(env("UPLOAD_FILE_MAX_BYTES", str(50 * 1024 * 1024))),
-    "video_max_bytes": int(env("UPLOAD_VIDEO_MAX_BYTES", str(300 * 1024 * 1024))),
     # 个人图片配额（每用户全局累计）
     "images_per_user": int(env("UPLOAD_IMAGES_PER_USER", "50")),
     "image_bytes_per_user": int(
@@ -214,6 +219,15 @@ UPLOAD_LIMITS = {
     "image_quality": int(env("UPLOAD_IMAGE_QUALITY", "82")),
     "thumb_edge": int(env("UPLOAD_THUMB_EDGE", "400")),
     "thumb_quality": int(env("UPLOAD_THUMB_QUALITY", "78")),
+    # 单次提交的数量与总量上限
+    "images_per_submission": int(env("UPLOAD_IMAGES_PER_SUBMISSION", "20")),
+    "files_per_submission": int(env("UPLOAD_FILES_PER_SUBMISSION", "5")),
+    "submission_total_bytes": int(
+        env("UPLOAD_SUBMISSION_TOTAL_BYTES", str(100 * 1024 * 1024))
+    ),
+    # 文本上限
+    "text_max_chars": int(env("UPLOAD_TEXT_MAX_CHARS", "20000")),
+    "comment_max_chars": int(env("UPLOAD_COMMENT_MAX_CHARS", "5000")),
     # 预签名下载 URL 有效期（秒）
     "presign_expires_seconds": int(env("COS_PRESIGN_EXPIRES", "300")),
 }

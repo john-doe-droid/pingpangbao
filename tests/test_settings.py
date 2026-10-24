@@ -5,9 +5,6 @@
 会明确报错、在有配置时给出安全取值。不是读源码做字符串匹配。
 """
 import importlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -188,3 +185,54 @@ def test_settings_modules_contain_no_hardcoded_secret():
         text = (BASE_DIR / "config" / "settings" / name).read_text(encoding="utf-8")
         for bad in ('SECRET_KEY = "', "SECRET_KEY = '", 'PASSWORD": "pingpong'):
             assert bad not in text, "%s 中疑似写死了敏感值：%s" % (name, bad)
+
+
+# ---------------------------------------------------------------------------
+# 容器部署的关键不变量
+# ---------------------------------------------------------------------------
+
+def test_runtime_static_files_are_recollected():
+    """运行时静态卷会遮住镜像内容，启动时必须重新 collectstatic。"""
+    dockerfile = (BASE_DIR / "Dockerfile").read_text(encoding="utf-8")
+    command = next(
+        line for line in dockerfile.splitlines()
+        if line.startswith("CMD ")
+    )
+    assert command.index("collectstatic --noinput") < command.index(
+        "migrate --noinput"
+    )
+    assert command.index("migrate --noinput") < command.index("gunicorn")
+
+
+def test_compose_healthcheck_host_is_allowed():
+    """容器内健康检查使用 127.0.0.1，必须进入内部允许主机列表。"""
+    compose = (BASE_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+    assert 'DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:' in compose
+    assert ',127.0.0.1"' in compose
+
+
+def test_nginx_domain_is_injected_from_environment():
+    """生产域名不应要求手工修改版本控制中的 Nginx 配置。"""
+    compose = (BASE_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+    nginx = (BASE_DIR / "deploy" / "nginx" / "pingpong.conf").read_text(
+        encoding="utf-8",
+    )
+    assert "/etc/nginx/templates/default.conf.template" in compose
+    assert 'DOMAIN: "${DOMAIN:' in compose
+    assert "server_name ${DOMAIN};" in nginx
+    assert "/live/${DOMAIN}/fullchain.pem" in nginx
+
+
+def test_https_bootstrap_does_not_require_existing_certificate():
+    """首次签发前不能启动引用不存在证书的完整 Nginx 配置。"""
+    bootstrap = (
+        BASE_DIR / "deploy" / "nginx" / "acme-bootstrap.conf"
+    ).read_text(encoding="utf-8")
+    init_script = (
+        BASE_DIR / "deploy" / "init-certificates.sh"
+    ).read_text(encoding="utf-8")
+    assert "acme-challenge" in bootstrap
+    assert "503" in bootstrap
+    assert "ssl_certificate" not in bootstrap
+    assert "acme-bootstrap.conf" in init_script
+    assert "certbot/certbot certonly --webroot" in init_script

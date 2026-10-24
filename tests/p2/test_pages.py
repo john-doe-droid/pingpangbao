@@ -213,6 +213,29 @@ class TestWorkTypeAndTemplatePages:
         assert t.max_records_per_member == 2
         assert t.require_image is False
 
+    def test_create_template_with_single_choice_material_requirements(
+            self, logged_in_client, admin_user, worktype):
+        """新界面每种材料只提交一个三选一值。"""
+        client = logged_in_client.as_(admin_user)
+        resp = client.post(reverse("tasks_admin:template_create"), {
+            "name": "三选一模板",
+            "work_type": worktype.pk,
+            "description": "",
+            "text_requirement": "none",
+            "image_requirement": "optional",
+            "file_requirement": "required",
+            "link_requirement": "none",
+            "max_records_per_member": 1,
+        })
+        assert resp.status_code == 302
+        template = TaskTemplate.objects.get(name="三选一模板")
+        assert template.allow_text is False
+        assert template.require_text is False
+        assert template.allow_image is True
+        assert template.require_image is False
+        assert template.allow_file is True
+        assert template.require_file is True
+
     def test_template_require_without_allow_rejected(self, logged_in_client,
                                                      admin_user, worktype):
         """必填但未允许：表单必须报错且不落库。"""
@@ -277,7 +300,7 @@ class TestTaskConfigPages:
             self, logged_in_client, admin_user, archived_competition, template):
         """归档后不得新增任务。"""
         client = logged_in_client.as_(admin_user)
-        resp = client.post(
+        client.post(
             reverse("tasks_admin:task_create", args=[archived_competition.pk]),
             {"template": template.pk, "name": "不该建", "description": "", "deadline": ""},
         )
@@ -287,7 +310,7 @@ class TestTaskConfigPages:
     def test_archived_not_in_available_competitions_for_tasks(
             self, make_competition, template, make_task):
         """归档后的比赛不应出现在「可新增任务」的集合里。"""
-        draft = make_competition(name="草稿赛", status="draft")
+        make_competition(name="草稿赛", status="draft")
         active = make_competition(name="进行赛", status="active")
         archived = make_competition(name="归档赛", status="archived")
         make_task(template, competition=active)
@@ -363,12 +386,12 @@ class TestAssignmentPages:
         assert ("取消" in body or "请至少选择" in body or "未重复" in body or "已被分配" in body)
 
     def test_assign_requires_member_role(self, logged_in_client, admin_user, task,
-                                         viewer_user):
+                                         regular_user):
         """只有具备「干事」角色的账号才能被分配。"""
         client = logged_in_client.as_(admin_user)
         resp = client.get(reverse("tasks_admin:task_detail", args=[task.pk]))
         body = resp.content.decode("utf-8")
-        assert viewer_user.real_name not in body
+        assert regular_user.real_name not in body
 
     def test_deactivate_assignment(self, logged_in_client, admin_user, task,
                                    member_user, make_assignment):
@@ -489,7 +512,7 @@ class TestMemberPages:
         assert task.competition.name in body           # 比赛名称
         assert task.work_type.name in body             # 工作类型
         assert "截止时间" in body                       # 生效截止时间
-        assert "进行中" in body or "已逾期" in body      # 逾期/状态
+        assert "待提交" in body or "已逾期" in body      # 逾期/待办状态
 
     def test_my_task_detail_points_to_real_submission_entry(self, logged_in_client,
                                                             member_user, task,

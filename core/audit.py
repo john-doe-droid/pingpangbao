@@ -4,15 +4,11 @@
 统一从这里写审计记录，避免各视图各写一套、格式不一致。
 """
 from .models import AuditLog
+from .request_ip import get_client_ip
 
 
 def _client_ip(request):
-    if request is None:
-        return None
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip() or None
-    return request.META.get("REMOTE_ADDR") or None
+    return get_client_ip(request)
 
 
 def log_action(request, action, target=None, detail=""):

@@ -8,7 +8,7 @@
   <nav aria-label="面包屑">
     <ol class="breadcrumb">
       <li class="breadcrumb-item">
-        <a href="{% url 'submissions:my_submissions' %}">我的工作记录</a>
+        <a href="{% url 'submissions:my_submissions' %}">我的提交</a>
       </li>
       <li class="breadcrumb-item active" aria-current="page">记录详情</li>
     </ol>
@@ -35,7 +35,7 @@
   </div>
 
   {# ---------- 主要操作 ---------- #}
-  {% if is_owner and submission.status == 'needs_revision' %}
+  {% if can_revise %}
     <div class="pp-surface" style="border-color: var(--pp-danger-border);">
       <div class="pp-surface__body" style="display: flex; flex-wrap: wrap; gap: var(--pp-space-3); align-items: center; justify-content: space-between;">
         <span class="pp-meta" style="margin: 0;">

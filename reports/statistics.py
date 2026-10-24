@@ -69,13 +69,13 @@ def summarize(user, filters) -> dict:
 def by_member(user, filters) -> list[dict]:
     """按人员汇总。
 
-    每行：干事 + 学号 + 记录数 + 版本数 + 各状态数 + 逾期数 + 各类材料数量。
+    每行：干事 + 账号 + 记录数 + 版本数 + 各状态数 + 逾期数 + 各类材料数量。
     """
     qs = (
         build_filtered_queryset(user, filters)
         .values(
             "assignment__member_id",
-            "assignment__member__student_id",
+            "assignment__member__account",
             "assignment__member__real_name",
         )
         .annotate(
@@ -110,14 +110,14 @@ def by_member(user, filters) -> list[dict]:
                 distinct=True,
             ),
         )
-        .order_by("assignment__member__student_id")
+        .order_by("assignment__member__account")
     )
 
     rows = []
     for item in qs:
         rows.append({
             "member_id": item["assignment__member_id"],
-            "student_id": item["assignment__member__student_id"],
+            "account": item["assignment__member__account"],
             "real_name": item["assignment__member__real_name"],
             "total_records": item["total_records"] or 0,
             "version_count": item["version_count"] or 0,
@@ -201,7 +201,7 @@ def details(user, filters) -> list[dict]:
             "competition_name": submission.competition.name,
             "task_name": submission.task.name,
             "work_type_name": submission.task.work_type.name,
-            "member_student_id": submission.assignment.member.student_id,
+            "member_account": submission.assignment.member.account,
             "member_name": submission.assignment.member.real_name,
             "status": submission.status,
             "status_label": submission.get_status_display(),

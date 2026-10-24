@@ -291,12 +291,12 @@ def check_seed_roles():
     )
     code, out = run([PYTHON, "-c", script])
     codes = set(out.strip().splitlines()[-1].split(",")) if out.strip() else set()
-    need = {"club_admin", "member", "viewer"}
+    need = {"club_admin", "member"}
     if code != 0 or not need <= codes:
         record("P2 角色种子数据存在", FAIL,
                "缺少角色：%s（当前：%s）" % (sorted(need - codes), sorted(codes)), out)
     else:
-        record("P2 角色种子数据存在", PASS, "club_admin / member / viewer")
+        record("P2 角色种子数据存在", PASS, "club_admin / member")
 
 
 def check_urls_wired():
@@ -396,7 +396,7 @@ def check_permission_invariants():
     这样如果测试被误改，这里仍能拦住。
 
     脚本必须可重复运行：开头先清掉上一次可能留下的验证数据
-    （否则固定学号会撞唯一约束，把「脚本不幂等」误报成「权限出问题」）。
+    （否则固定账号会撞唯一约束，把「脚本不幂等」误报成「权限出问题」）。
     """
     script = r'''
 import os, django
@@ -411,7 +411,7 @@ from django.utils import timezone
 from accounts.models import Role
 from competitions.models import Competition, CompetitionStatus, ReviewerAssignment
 from competitions.permissions import can_manage_competition, can_review_competition
-from core.permissions import user_can_view_all, user_is_admin
+from core.permissions import user_is_admin
 
 User = get_user_model()
 problems = []
@@ -420,13 +420,13 @@ VERIFY_IDS = ["VF-ADM", "VF-VIEW", "VF-MEM"]
 VERIFY_COMPETITIONS = ["权限不变量验证比赛", "另一场比赛"]
 
 # --- 清理上次残留，保证脚本可重复执行 ---
-User.objects.filter(student_id__in=VERIFY_IDS).delete()
+User.objects.filter(account__in=VERIFY_IDS).delete()
 Competition.objects.filter(name__in=VERIFY_COMPETITIONS).delete()
 
 
 def mk(sid, name, code=None, **extra):
     u = User.objects.create_user(
-        student_id=sid, password="Verify!Passw0rd9", real_name=name, **extra)
+        account=sid, password="Verify!Passw0rd9", real_name=name, **extra)
     u.must_change_password = False
     u.save(update_fields=["must_change_password"])
     if code:
@@ -444,7 +444,7 @@ def mk_competition(name):
 
 try:
     admin = mk("VF-ADM", "验证管理员", "club_admin")
-    viewer = mk("VF-VIEW", "验证查看员", "viewer")
+    viewer = mk("VF-VIEW", "验证普通用户", "")
     member = mk("VF-MEM", "验证干事", "member")
 
     comp = mk_competition("权限不变量验证比赛")
@@ -453,13 +453,13 @@ try:
     if not can_manage_competition(admin, comp):
         problems.append("管理员应能管理比赛")
 
-    # 2. 查看权 != 管理权
-    if user_can_view_all(viewer) and can_manage_competition(viewer, comp):
-        problems.append("全局查看权不应推导出管理权")
+    # 2. 普通登录身份 != 管理权
+    if can_manage_competition(viewer, comp):
+        problems.append("普通登录身份不应推导出管理权")
 
-    # 3. 查看权 != 审核权
-    if user_can_view_all(viewer) and can_review_competition(viewer, comp):
-        problems.append("全局查看权不应推导出审核权")
+    # 3. 普通登录身份 != 审核权
+    if can_review_competition(viewer, comp):
+        problems.append("普通登录身份不应推导出审核权")
 
     # 4. 管理员身份本身不等于审核权
     if user_is_admin(admin) and can_review_competition(admin, comp):
@@ -485,7 +485,7 @@ try:
         problems.append("审核权不应跨比赛生效")
 finally:
     # 清理本次验证数据，不在业务库里留痕
-    User.objects.filter(student_id__in=VERIFY_IDS).delete()
+    User.objects.filter(account__in=VERIFY_IDS).delete()
     Competition.objects.filter(name__in=VERIFY_COMPETITIONS).delete()
 
 print("PROBLEMS:" + ("|".join(problems) if problems else "NONE"))

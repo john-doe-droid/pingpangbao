@@ -26,6 +26,7 @@ record_orphans）。无数据库写入则无记录，因此不会出现"半个�
 from __future__ import annotations
 
 import os
+import codecs
 
 from django.core.files.uploadedfile import UploadedFile
 
@@ -33,7 +34,6 @@ from core.imaging import ImageValidationError, process_image
 from core.storage import generate_object_key, get_storage
 from core.upload_config import (
     ALLOWED_FILE_EXTENSIONS,
-    ALLOWED_VIDEO_EXTENSIONS,
     get_upload_limits,
     human_size,
 )
@@ -49,11 +49,7 @@ _FILE_MAGICS = {
     b"7z\xbc\xaf\x27\x1c": "application/x-7z-compressed",
 }
 
-_VIDEO_MAGICS = {
-    b"\x00\x00\x00\x18ftyp": "video/mp4",   # 常见偏移处
-    b"\x00\x00\x00\x20ftyp": "video/mp4",
-    b"\x1a\x45\xdf\xa3": "video/webm",
-}
+_TEXT_EXTENSIONS = {".txt", ".csv", ".md"}
 
 
 def _head_bytes(upload: UploadedFile, size: int = 32) -> bytes:
@@ -61,8 +57,7 @@ def _head_bytes(upload: UploadedFile, size: int = 32) -> bytes:
 
     ⚠️ 大文件必须避免整读内存：
     Django 在文件超过 FILE_UPLOAD_MAX_MEMORY_SIZE 时会把它落到临时文件
-    （TemporaryUploadedFile）。这类对象的 `read(n)` 并不只是"读 n 字节"——
-    在部分实现下会先把内容载入内存，对 300 MiB 视频足以打爆内存。
+    （TemporaryUploadedFile）。这类对象的部分实现可能先把内容载入内存。
 
     因此这里的策略是：
       1. 若有 `temporary_file_path()`，**直接打开该文件**读前 n 字节；
@@ -87,24 +82,28 @@ def _head_bytes(upload: UploadedFile, size: int = 32) -> bytes:
 
 
 def _detect_binary_kind(head: bytes) -> str | None:
-    """依据文件头判断非图片/视频类文件的真实类型。"""
+    """依据文件头判断非图片文件的真实类型。"""
     for magic, kind in _FILE_MAGICS.items():
         if head.startswith(magic):
             return kind
     return None
 
 
-def _detect_video_kind(head: bytes) -> str | None:
-    """判断视频真实类型。
-
-    mp4 的 'ftyp' box 不一定在第 0 字节，在头部窗口内搜索更稳。
-    """
-    if b"ftyp" in head[:32]:
-        return "video/mp4"
-    for magic, kind in _VIDEO_MAGICS.items():
-        if head.startswith(magic):
-            return kind
-    return None
+def _detect_text_kind(head: bytes, extension: str) -> str | None:
+    """识别常见 UTF-8 文本；文本附件仍只作为下载内容保存。"""
+    if not head or b"\x00" in head:
+        return None
+    try:
+        codecs.getincrementaldecoder("utf-8-sig")(errors="strict").decode(
+            head, final=False,
+        )
+    except UnicodeDecodeError:
+        return None
+    return {
+        ".md": "text/markdown",
+        ".csv": "text/csv",
+        ".txt": "text/plain",
+    }.get(extension, "text/plain")
 
 
 def _safe_original_name(upload: UploadedFile) -> str:
@@ -226,7 +225,7 @@ def prepare_image(upload: UploadedFile, *, user) -> list[PendingUpload]:
 
 
 # ---------------------------------------------------------------------------
-# 普通文件 / 视频
+# 普通文件
 # ---------------------------------------------------------------------------
 
 def prepare_file(upload: UploadedFile, *, user) -> PendingUpload:
@@ -240,44 +239,23 @@ def prepare_file(upload: UploadedFile, *, user) -> PendingUpload:
     size = _validate_size(upload, MaterialType.FILE, limits)
     _check_extension(upload, ALLOWED_FILE_EXTENSIONS, "文件附件")
 
-    head = _head_bytes(upload)
-    kind = _detect_binary_kind(head)
+    ext = os.path.splitext(_safe_original_name(upload))[1].lower() or ".bin"
+    head = _head_bytes(upload, 4096 if ext in _TEXT_EXTENSIONS else 32)
+    kind = (
+        _detect_text_kind(head, ext)
+        if ext in _TEXT_EXTENSIONS
+        else _detect_binary_kind(head)
+    )
     if kind is None:
         raise SubmissionError(
             "无法识别文件内容类型，仅支持 PDF、Office 文档、压缩包与纯文本。"
         )
 
-    ext = os.path.splitext(_safe_original_name(upload))[1].lower() or ".bin"
     key = generate_object_key(ext)
     _store_upload(upload, key)
 
     return PendingUpload(
         material_type=MaterialType.FILE,
-        storage_key=key,
-        original_name=_safe_original_name(upload),
-        detected_content_type=kind,
-        size_bytes=size,
-        uploaded_keys=[key],
-    )
-
-
-def prepare_video(upload: UploadedFile, *, user) -> PendingUpload:
-    """处理一个视频附件。"""
-    limits = get_upload_limits()
-    size = _validate_size(upload, MaterialType.VIDEO, limits)
-    _check_extension(upload, ALLOWED_VIDEO_EXTENSIONS, "视频")
-
-    head = _head_bytes(upload, 64)
-    kind = _detect_video_kind(head)
-    if kind is None:
-        raise SubmissionError("无法识别视频格式，仅支持 MP4、MOV、WebM。")
-
-    ext = os.path.splitext(_safe_original_name(upload))[1].lower() or ".mp4"
-    key = generate_object_key(ext)
-    _store_upload(upload, key)
-
-    return PendingUpload(
-        material_type=MaterialType.VIDEO,
         storage_key=key,
         original_name=_safe_original_name(upload),
         detected_content_type=kind,

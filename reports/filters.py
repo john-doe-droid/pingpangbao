@@ -25,13 +25,12 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
-from django.db.models import Q
 from django.utils import timezone
 
-from submissions.models import Submission, SubmissionStatus
+from submissions.models import SubmissionStatus
 
 # 统计维度可选值（页面下拉与此处保持一致）
 STATUS_CHOICES_FOR_FILTER = [

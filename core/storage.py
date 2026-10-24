@@ -50,6 +50,7 @@ def verify_download_token(token: str) -> str | None:
     过期判定用签名时间戳（signing 的 max_age），无需额外查库。
     """
     from django.core import signing
+    from django.utils import timezone
 
     from core.upload_config import get_upload_limits
 
@@ -61,6 +62,11 @@ def verify_download_token(token: str) -> str | None:
     except signing.BadSignature:
         return None          # 被篡改
     key = payload.get("key") if isinstance(payload, dict) else None
+    expires_at = payload.get("exp") if isinstance(payload, dict) else None
+    # 兼容升级前签发的令牌；它们没有 exp，但 loads(max_age=...) 仍会按签名
+    # 时间强制过期。新令牌带 exp，可精确支持更短的单独有效期。
+    if expires_at is not None and int(expires_at) < int(timezone.now().timestamp()):
+        return None
     return key or None
 
 
@@ -348,12 +354,21 @@ def build_storage():
                     % root
                 )
 
-        return LocalPrivateStorage(Path(root))
-        if not root:
-            raise StorageConfigError(
-                "缺少 PRIVATE_MEDIA_ROOT 配置，无法使用本地私有存储。")
+        resolved_root = Path(root).resolve()
+        for public_name in ("MEDIA_ROOT", "STATIC_ROOT"):
+            public_root = getattr(settings, public_name, None)
+            if public_root:
+                public_resolved = Path(public_root).resolve()
+                try:
+                    resolved_root.relative_to(public_resolved)
+                except ValueError:
+                    continue
+                raise StorageConfigError(
+                    "PRIVATE_MEDIA_ROOT 不能位于 %s 内，否则反向代理可能绕过"
+                    "权限直接提供附件：%s" % (public_name, resolved_root)
+                )
 
-        return LocalPrivateStorage(Path(root))
+        return LocalPrivateStorage(resolved_root)
 
     raise StorageConfigError(
         "未知的 PRIVATE_STORAGE_BACKEND：%r（应为 local 或 cos）" % backend

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container pp-container pp-container--form">
+  <nav aria-label="面包屑">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'members_admin:list' %}">成员管理</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ page_title }}</li>
+    </ol>
+  </nav>
+
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">{{ page_title }}</h1>
+      {% if member %}
+        <p class="pp-page-header__desc">{{ member.real_name }}（{{ member.account }}）</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <form method="post" class="pp-surface">
+    {% csrf_token %}
+    <div class="pp-surface__body">
+      {% for field in form %}
+        <div class="mb-3">
+          <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          {% for error in field.errors %}<div class="pp-field-error">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+    <div class="pp-form-actions">
+      <button type="submit" class="btn btn-primary">
+        {% if is_create %}创建账号{% else %}重置密码{% endif %}
+      </button>
+      <a class="btn btn-outline-secondary" href="{% url 'members_admin:list' %}">取消</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

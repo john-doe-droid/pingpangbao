@@ -24,7 +24,6 @@ class UploadLimits:
     # --- 单文件输入大小上限（作用于用户上传的原始文件）---
     image_max_bytes: int = 10 * MiB
     file_max_bytes: int = 50 * MiB
-    video_max_bytes: int = 300 * MiB
 
     # --- 个人图片配额（每用户全局累计，跨比赛跨任务）---
     images_per_user: int = 50
@@ -36,6 +35,15 @@ class UploadLimits:
     thumb_edge: int = 400
     thumb_quality: int = 78
 
+    # --- 单次提交总量限制 ---
+    images_per_submission: int = 20
+    files_per_submission: int = 5
+    submission_total_bytes: int = 100 * MiB
+
+    # --- 文本限制 ---
+    text_max_chars: int = 20000
+    comment_max_chars: int = 5000
+
     # --- 预签名下载 URL 有效期（秒）---
     presign_expires_seconds: int = 300
 
@@ -44,7 +52,6 @@ class UploadLimits:
         return {
             "image": self.image_max_bytes,
             "file": self.file_max_bytes,
-            "video": self.video_max_bytes,
         }.get(material_type, self.image_max_bytes)
 
     def human_max_for(self, material_type: str) -> str:
@@ -89,4 +96,3 @@ ALLOWED_FILE_EXTENSIONS = {
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
     ".txt", ".csv", ".md", ".zip", ".7z",
 }
-ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm"}

@@ -13,16 +13,11 @@
 from functools import wraps
 
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import redirect
 
 # --- 角色标识常量 ---------------------------------------------------------
 # 与 accounts/migrations 里的种子数据保持一致。
 ROLE_ADMIN = "club_admin"      # 社团管理员：全部管理操作
-ROLE_MEMBER = "member"         # 干事：只能看分配给自己的任务
-ROLE_VIEWER = "viewer"         # 全局查看：可浏览比赛列表/详情，但不能管理
-
-MANAGEMENT_ROLES = (ROLE_ADMIN,)
-
+ROLE_MEMBER = "member"         # 干事：可被分配任务并提交工作成果
 
 def user_is_admin(user):
     """是否拥有社团管理员权限（可执行全部管理操作）。"""
@@ -31,18 +26,6 @@ def user_is_admin(user):
     if getattr(user, "is_superuser", False):
         return True
     return user.has_role(ROLE_ADMIN)
-
-
-def user_can_view_all(user):
-    """是否可浏览全部（非草稿）比赛。
-
-    注意：这只给"查看"权限，**不包含**审核权与管理权。
-    """
-    if not user or not getattr(user, "is_authenticated", False):
-        return False
-    if getattr(user, "is_superuser", False):
-        return True
-    return user.has_role(ROLE_ADMIN, ROLE_VIEWER)
 
 
 def user_is_member(user):

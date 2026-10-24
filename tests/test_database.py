@@ -74,7 +74,7 @@ def test_custom_user_table_exists(db):
         columns = {row[0] for row in cursor.fetchall()}
 
     assert columns, "accounts_user 表不存在"
-    assert "student_id" in columns
+    assert "account" in columns
     assert "must_change_password" in columns
     assert "password_changed_at" in columns
 
@@ -93,12 +93,12 @@ def test_m2m_roles_table_exists(db):
 
 
 @pytest.mark.postgres
-def test_unique_constraint_on_student_id(db):
-    """学号唯一约束必须在数据库层生效，而不只是应用层校验。"""
+def test_unique_constraint_on_account(db):
+    """账号唯一约束必须在数据库层生效，而不只是应用层校验。"""
     from django.db import IntegrityError
 
     from accounts.models import User
 
-    User.objects.create_user(student_id="2025317020111", password="TestPassw0rd!2026")
+    User.objects.create_user(account="2025317020111", password="TestPassw0rd!2026")
     with pytest.raises(IntegrityError):
-        User.objects.create_user(student_id="2025317020111", password="TestPassw0rd!2026")
+        User.objects.create_user(account="2025317020111", password="TestPassw0rd!2026")

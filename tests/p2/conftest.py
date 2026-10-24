@@ -43,18 +43,11 @@ def role_admin(db):
     return role
 
 
-@pytest.fixture
-def role_viewer(db):
-    role, _ = Role.objects.get_or_create(
-        code="viewer", defaults={"name": "全局查看", "sort_order": 30})
-    return role
-
-
 # ---------------------------------------------------------------------------
 # 用户
 # ---------------------------------------------------------------------------
 
-def _make_p2_user(student_id, real_name, password=P2_PASSWORD, **extra):
+def _make_p2_user(account, real_name, password=P2_PASSWORD, **extra):
     """创建可直接使用的账号：不要求首登改密。
 
     注意 real_name 必须真的传进 create_user —— 它是模型必填字段，
@@ -62,7 +55,7 @@ def _make_p2_user(student_id, real_name, password=P2_PASSWORD, **extra):
     """
     extra.setdefault("must_change_password", False)
     user = User.objects.create_user(
-        student_id=student_id, password=password, real_name=real_name, **extra)
+        account=account, password=password, real_name=real_name, **extra)
     user.must_change_password = False
     user.save(update_fields=["must_change_password"])
     return user
@@ -107,11 +100,9 @@ def other_member(db, role_member):
 
 
 @pytest.fixture
-def viewer_user(db, role_viewer):
-    """只有全局查看权限的用户：用于验证"查看权不等于审核权"。"""
-    user = _make_p2_user("V0001", "查看员小赵")
-    user.roles.add(role_viewer)
-    return user
+def regular_user(db):
+    """普通已登录、无管理角色的用户。"""
+    return _make_p2_user("V0001", "普通用户小赵")
 
 
 # ---------------------------------------------------------------------------

@@ -72,7 +72,7 @@ def main() -> int:
     from tasks.models import CompetitionTask, TaskAssignment
 
     def u(sid):
-        return User.objects.filter(student_id=sid).first()
+        return User.objects.filter(account=sid).first()
 
     admin, m1, m2 = u("D-ADMIN"), u("D-MEMBER1"), u("D-MEMBER2")
     if not (admin and m1 and m2):
@@ -146,9 +146,9 @@ def main() -> int:
         """用真实表单提交，返回 Submission 或 None。"""
         a = asg_of(task, member)
         if a is None:
-            print("  跳过（未分配该任务）:", task.name, member.student_id)
+            print("  跳过（未分配该任务）:", task.name, member.account)
             return None
-        c = login(member.student_id)
+        c = login(member.account)
         # 注意：Django 5.2 的 Client.post 没有 files 参数 ——
         # 文件必须放进 data 里（值可以是文件对象或文件列表）。
         # 传 files= 会被当作未知关键字塞进 extra 而静默丢弃，
@@ -168,7 +168,7 @@ def main() -> int:
         if resp.status_code != 200:
             print("  提交返回异常状态:", resp.status_code)
         if sub is None:
-            print("  提交后没有记录产生:", task.name, member.student_id)
+            print("  提交后没有记录产生:", task.name, member.account)
         return sub
 
     created = []
@@ -193,7 +193,7 @@ def main() -> int:
 
     # 3) 已通过：让 m1（授权审核人）审核 m2 的记录 —— 满足"不能审自己"
     if sub2:
-        c = login(m1.student_id)
+        c = login(m1.account)
         r = c.post("/my/submissions/review/%d/" % sub2.pk,
                    {"action": "approve", "comment": "构图清晰，信息完整。"},
                    follow=True)
@@ -204,12 +204,6 @@ def main() -> int:
             print("  审核未生效，状态仍为:", sub2.status)
 
     # 4) 已退回 → 重新提交，形成多版本（验收版本历史）
-    #
-    # 说明：这里本想在"撰写赛后推文"任务上造数据，但该任务要求「作品链接」，
-    # 而 MaterialType.LINK 的值被写成中文「作品链接」，与规则快照的键 "link"
-    # 对不上，导致任何"要求作品链接"的任务都无法提交成功（P3 起就存在）。
-    # 本次是 UI 改版，不修业务逻辑，故改用海报任务造多版本数据。
-    # 该缺陷已在交付报告中单独列出。
     sub3 = submit(task_poster, m1,
                   MARK + " 海报第二稿：补充了比赛时间与场地信息。",
                   with_image=True)
@@ -228,7 +222,7 @@ def main() -> int:
     print("  D-ADMIN    社团管理员（配置任务、记录管理、全部报表）")
     print("  D-MEMBER1  干事 + 本场审核人（可进审核队列）")
     print("  D-MEMBER2  干事（只看自己的）")
-    print("  D-VIEWER   全局查看（无管理权、无审核权）")
+    print("  D-VIEWER   普通用户（无管理权、无审核权）")
     return 0
 
 

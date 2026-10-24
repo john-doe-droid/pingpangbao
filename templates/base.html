@@ -15,14 +15,13 @@
 
   {# ===================== 顶栏 ===================== #}
   {% comment %}
-    导航高亮用 request.path 前缀判断，不需要改视图去传上下文 ——
-    本次是 UI 改版，尽量不碰后端。前缀按各模块挂载点切分：
-      /my/tasks/           → 我的任务
-      /my/submissions/     → 我的工作记录（详情/提交/审核都在此下）
+    导航高亮优先按路由名区分审核页，其余用模块挂载路径切分；
+    这样“我的工作”和“审核”不会再因共用 URL 前缀同时高亮。
+      /my/tasks/           → 我的工作
+      /my/submissions/     → 我的提交（审核页单独高亮）
       /competitions/       → 比赛
-      /manage/tasks/       → 任务模板 / 工作类型（按二级路径再分）
-      /manage/submissions/ → 记录管理
-      /reports/            → 统计报表
+      /manage/             → 管理
+      /reports/            → 管理
   {% endcomment %}
   {% with p=request.path %}
   <header class="pp-header">
@@ -51,56 +50,40 @@
 
       <nav class="pp-nav" id="ppNav" aria-label="主导航">
         {% if user.is_authenticated %}
-          {# --- 工作台：让用户随时能回到起点 --- #}
-          <a class="pp-nav__link {% if p == '/' %}is-active{% endif %}"
-             href="{% url 'core:home' %}"
-             {% if p == '/' %}aria-current="page"{% endif %}>工作台</a>
+          {# --- 管理员的概览；普通成员的首页会直接进入“我的工作” --- #}
+          {% if nav_is_admin %}
+            <a class="pp-nav__link {% if p == '/' %}is-active{% endif %}"
+               href="{% url 'core:home' %}"
+               {% if p == '/' %}aria-current="page"{% endif %}>概览</a>
+          {% endif %}
 
-          {# --- 我的工作（所有角色）--- #}
-          <a class="pp-nav__link {% if p|slice:":10" == "/my/tasks/" %}is-active{% endif %}"
+          {# --- 我的工作：待办与提交统一入口 --- #}
+          <a class="pp-nav__link {% if p|slice:":10" == "/my/tasks/" or p|slice:":16" == "/my/submissions/" and request.resolver_match.url_name != 'review_queue' and request.resolver_match.url_name != 'review_submission' and request.resolver_match.url_name != 'review_detail' and request.resolver_match.url_name != 'reopen_submission' %}is-active{% endif %}"
              href="{% url 'tasks:my_tasks' %}"
-             {% if p|slice:":10" == "/my/tasks/" %}aria-current="page"{% endif %}>我的任务</a>
-
-          <a class="pp-nav__link {% if p|slice:":16" == "/my/submissions/" %}is-active{% endif %}"
-             href="{% url 'submissions:my_submissions' %}"
-             {% if p|slice:":16" == "/my/submissions/" %}aria-current="page"{% endif %}>我的工作记录</a>
+             {% if p|slice:":10" == "/my/tasks/" or p|slice:":16" == "/my/submissions/" and request.resolver_match.url_name != 'review_queue' and request.resolver_match.url_name != 'review_submission' and request.resolver_match.url_name != 'review_detail' and request.resolver_match.url_name != 'reopen_submission' %}aria-current="page"{% endif %}>
+            我的工作
+            {% if nav_need_revision %}<span class="pp-nav__badge" aria-label="{{ nav_need_revision }} 条记录待修改">{{ nav_need_revision }}</span>{% endif %}
+          </a>
 
           {# --- 比赛（所有角色都能看；配置入口仅管理员可见）--- #}
           <a class="pp-nav__link {% if p|slice:":14" == "/competitions/" %}is-active{% endif %}"
              href="{% url 'competitions:list' %}"
              {% if p|slice:":14" == "/competitions/" %}aria-current="page"{% endif %}>比赛</a>
 
-          {% comment %}
-            审核队列：入口对所有登录用户显示，但内容由后端按授权过滤。
-            不在模板里查"是否有审核权"——那会为每个页面多加一次查询，
-            且容易与后端判断不一致。视图已对未授权者给出明确说明。
-          {% endcomment %}
-          <a class="pp-nav__link {% if "/review" in p %}is-active{% endif %}"
-             href="{% url 'submissions:review_queue' %}"
-             {% if "/review" in p %}aria-current="page"{% endif %}>审核</a>
-
-          {% comment %}
-              统计报表：仅社团管理员。后端 reports 视图本身是 admin_required，
-              这里只是不显示无用入口，不依赖它来做权限。
-            {% endcomment %}
-          {% if user.is_superuser or 'club_admin' in user.role_codes %}
-            <a class="pp-nav__link {% if p|slice:":9" == "/reports/" %}is-active{% endif %}"
-               href="{% url 'reports:page' %}"
-               {% if p|slice:":9" == "/reports/" %}aria-current="page"{% endif %}>统计报表</a>
+          {% if nav_can_review %}
+            <a class="pp-nav__link {% if '/review' in p %}is-active{% endif %}"
+               href="{% url 'submissions:review_queue' %}"
+               {% if '/review' in p %}aria-current="page"{% endif %}>
+              审核
+              {% if nav_review_pending %}<span class="pp-nav__badge pp-nav__badge--warning" aria-label="{{ nav_review_pending }} 条记录待审核">{{ nav_review_pending }}</span>{% endif %}
+            </a>
           {% endif %}
 
-          {# --- 管理配置（仅社团管理员）--- #}
-          {% if user.is_superuser or 'club_admin' in user.role_codes %}
-            <a class="pp-nav__link {% if p|slice:":20" == "/manage/submissions/" %}is-active{% endif %}"
+          {# --- 管理：工作记录、报表与配置统一从这个入口进入 --- #}
+          {% if nav_is_admin %}
+            <a class="pp-nav__link {% if p|slice:":8" == '/manage/' or p|slice:":9" == '/reports/' %}is-active{% endif %}"
                href="{% url 'submissions_admin:list' %}"
-               {% if p|slice:":20" == "/manage/submissions/" %}aria-current="page"{% endif %}>记录管理</a>
-            {% comment %}
-              任务模板与工作类型合并为一处入口：工作类型是模板的依赖项，
-              独立成顶级菜单只会让导航更长，实际使用中几乎总是一起看。
-            {% endcomment %}
-            <a class="pp-nav__link {% if "/manage/tasks/" in p %}is-active{% endif %}"
-               href="{% url 'tasks_admin:template_list' %}"
-               {% if "/manage/tasks/" in p %}aria-current="page"{% endif %}>任务模板</a>
+               {% if p|slice:":8" == '/manage/' or p|slice:":9" == '/reports/' %}aria-current="page"{% endif %}>管理</a>
           {% endif %}
 
           {# --- 移动端才显示的用户区（桌面端隐藏）--- #}
@@ -146,43 +129,6 @@
     </div>
   </header>
   {% endwith %}
-
-  {% comment %}
-    登录后使用说明（只弹一次）
-
-    用原生 dialog：无需额外 JS 库，键盘可达（Esc 关闭、焦点被约束在
-    对话框内）是浏览器原生行为。标记由 welcome_tour 上下文处理器提供，
-    读取后即被清掉，因此只在登录后的第一个页面出现一次。
-
-    注意：本段的说明必须写在 comment 块里，不能用多行花括号井号注释 ——
-    Django 的那种注释只支持单行，多行会把后续内容当成正文输出，
-    静默破坏 HTML 结构（本项目已踩过两次）。
-  {% endcomment %}
-  {% if welcome_tour %}
-    <dialog class="pp-welcome" id="ppWelcome" aria-labelledby="ppWelcomeTitle">
-      <div class="pp-welcome__body">
-        <h2 class="pp-welcome__title" id="ppWelcomeTitle">{{ welcome_tour.title }}</h2>
-        <ul class="pp-welcome__list">
-          {% for item in welcome_tour.items %}
-            <li>{{ item }}</li>
-          {% endfor %}
-        </ul>
-        <div class="pp-welcome__actions">
-          <button type="button" class="btn btn-primary" id="ppWelcomeOk">知道了</button>
-        </div>
-      </div>
-    </dialog>
-    <script>
-      (function () {
-        var dlg = document.getElementById('ppWelcome');
-        if (!dlg || typeof dlg.showModal !== 'function') return;
-        dlg.showModal();
-        document.getElementById('ppWelcomeOk').addEventListener('click', function () {
-          dlg.close();
-        });
-      })();
-    </script>
-  {% endif %}
 
   {# ===================== 消息提示 ===================== #}
   {% if messages %}

@@ -69,8 +69,6 @@ class SubmissionForm(forms.Form):
         widget=MultipleFileInput(attrs={
             "class": "form-control",
             "accept": "image/jpeg,image/png,image/webp",
-            # 手机端可直接唤起相机拍照
-            "capture": "environment",
             "multiple": True,
         }),
     )
@@ -81,16 +79,6 @@ class SubmissionForm(forms.Form):
         widget=MultipleFileInput(attrs={
             "class": "form-control",
             "multiple": True,
-        }),
-    )
-
-    video = forms.FileField(
-        label="视频",
-        required=False,
-        widget=forms.ClearableFileInput(attrs={
-            "class": "form-control",
-            "accept": "video/mp4,video/quicktime,video/webm",
-            "capture": "environment",
         }),
     )
 
@@ -119,15 +107,13 @@ class SubmissionForm(forms.Form):
                 self.fields.pop("images", None)
             if not snapshot.get("allow_file"):
                 self.fields.pop("files", None)
-            if not snapshot.get("allow_video"):
-                self.fields.pop("video", None)
             if not snapshot.get("allow_link"):
                 self.fields.pop("link", None)
 
         # 必填标记（用于模板显示红星）——真正的强制校验在服务层
         for key, field_name in (("text", "text_content"), ("image", "images"),
                                 ("file", "files"), ("link", "link"),
-                                ("video", "video")):
+                                ):
             if snapshot.get("require_%s" % key) and field_name in self.fields:
                 self.fields[field_name].required = True
                 self.fields[field_name].widget.attrs["required"] = "required"
@@ -136,7 +122,7 @@ class SubmissionForm(forms.Form):
         if "images" in self.fields:
             self.fields["images"].help_text = (
                 "支持 JPEG/PNG/WebP，单张不超过 %s；"
-                "每人累计最多 %d 张、%s。"
+                "每学期最多 %d 张、%s。"
                 % (human_size(limits.image_max_bytes),
                    limits.images_per_user,
                    human_size(limits.image_bytes_per_user))
@@ -144,15 +130,19 @@ class SubmissionForm(forms.Form):
         if "files" in self.fields:
             self.fields["files"].help_text = "单个文件不超过 %s。" % human_size(
                 limits.file_max_bytes)
-        if "video" in self.fields:
-            self.fields["video"].help_text = "单个视频不超过 %s。" % human_size(
-                limits.video_max_bytes)
+
+    def clean_text_content(self):
+        value = self.cleaned_data.get("text_content") or ""
+        max_chars = get_upload_limits().text_max_chars
+        if len(value) > max_chars:
+            raise forms.ValidationError("文字说明不能超过 %d 个字符。" % max_chars)
+        return value
 
     def required_materials(self):
         """返回本任务要求必填的材料标签（供页面提示）。"""
         snapshot = (self.task.rule_snapshot if self.task else {}) or {}
         return [
-            MATERIAL_LABELS[key] for key in ("text", "image", "file", "link", "video")
+            MATERIAL_LABELS[key] for key in ("text", "image", "file", "link")
             if snapshot.get("require_%s" % key)
         ]
 
@@ -185,6 +175,9 @@ class ReviewForm(forms.Form):
         cleaned = super().clean()
         if cleaned.get("action") == "reject" and not (cleaned.get("comment") or "").strip():
             self.add_error("comment", "退回修改必须填写理由，请说明需要改进的地方。")
+        max_chars = get_upload_limits().comment_max_chars
+        if len(cleaned.get("comment") or "") > max_chars:
+            self.add_error("comment", "审核意见不能超过 %d 个字符。" % max_chars)
         return cleaned
 
 
@@ -209,4 +202,16 @@ class ReopenForm(forms.Form):
         value = (self.cleaned_data.get("reopen_reason") or "").strip()
         if not value:
             raise forms.ValidationError("发起重新审核必须填写原因。")
+        max_chars = get_upload_limits().comment_max_chars
+        if len(value) > max_chars:
+            raise forms.ValidationError(
+                "重新审核原因不能超过 %d 个字符。" % max_chars,
+            )
         return value
+
+    def clean(self):
+        cleaned = super().clean()
+        max_chars = get_upload_limits().comment_max_chars
+        if len(cleaned.get("comment") or "") > max_chars:
+            self.add_error("comment", "审核意见不能超过 %d 个字符。" % max_chars)
+        return cleaned

@@ -65,7 +65,7 @@ def main():
     def marked_users():
         q = Q()
         for p in USER_PREFIXES:
-            q |= Q(student_id__startswith=p)
+            q |= Q(account__startswith=p)
         return User.objects.filter(q)
 
     def marked_competitions():

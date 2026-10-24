@@ -1,8 +1,8 @@
 /**
- * P6 改动专项实测：入口迁移、欢迎弹窗、报表收紧、任务可见性、新导航名。
+ * P6/P7 UI 实测：角色化首页、统一工作区、报表收紧与任务可见性。
  *
  * 这些改动大多是"行为规则"层面的，单元测试能覆盖权限，
- * 但"登录后到底弹不弹、弹几次、按钮在不在正确的位置"必须用真实浏览器确认。
+ * 但"登录后落到哪个页面、按钮在不在正确位置"必须用真实浏览器确认。
  *
  * 用法：node ui_p6_check.js [基地址]
  * 退出码：0 全部通过 / 1 有失败项
@@ -31,59 +31,45 @@ async function login(page, user) {
 (async () => {
   const browser = await chromium.launch({ executablePath: CHROME });
 
-  // ---------- 1. 登录后弹一次，且只弹一次 ----------
+  // ---------- 0. 登录字段统一使用“账号” ----------
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await ctx.newPage();
+    await page.goto(BASE + '/accounts/login/', { waitUntil: 'networkidle' });
+    const label = await page.locator('label[for="id_username"]').innerText();
+    if (label.includes('账号') && !label.includes('学号')) ok('登录字段使用「账号」');
+    else bad('登录字段使用「账号」', label);
+    await ctx.close();
+  }
+
+  // ---------- 1. 干事登录后直达“我的工作”，不再弹说明 ----------
   {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await ctx.newPage();
     page.setDefaultTimeout(30000);
     await login(page, 'D-MEMBER2');
 
-    const dlgOpen = await page.evaluate(() => {
-      const d = document.getElementById('ppWelcome');
-      return d ? d.open : false;
-    });
-    if (dlgOpen) ok('登录后弹出使用说明');
-    else bad('登录后弹出使用说明', '未找到打开的欢迎对话框');
-
-    // 内容应面向干事，且不出现管理员才需要的话
-    const text = await page.evaluate(() => {
-      const d = document.getElementById('ppWelcome');
-      return d ? d.innerText : '';
-    });
-    if (text.includes('我的任务')) ok('弹窗内容按身份（干事）', text.slice(0, 40).replace(/\n/g, ' '));
-    else bad('弹窗内容按身份（干事）', text.slice(0, 80));
-
-    // 点「知道了」关闭
-    await page.click('#ppWelcomeOk');
-    await page.waitForTimeout(220);
-    const closed = await page.evaluate(() => {
-      const d = document.getElementById('ppWelcome');
-      return d ? d.open : false;
-    });
-    if (!closed) ok('点「知道了」可关闭弹窗');
-    else bad('点「知道了」可关闭弹窗', '对话框仍处于打开状态');
-
-    // 跳转到别的页面，不应再弹（只弹一次）
-    await page.goto(BASE + '/my/tasks/', { waitUntil: 'networkidle' });
-    const again = await page.evaluate(() => !!document.getElementById('ppWelcome'));
-    if (!again) ok('后续页面不再弹（只弹一次）');
-    else bad('后续页面不再弹（只弹一次）', '又出现了欢迎对话框');
+    if (page.url().includes('/my/tasks/')) ok('干事登录后直达「我的工作」', page.url());
+    else bad('干事登录后直达「我的工作」', page.url());
+    const hasWelcome = await page.evaluate(() => !!document.getElementById('ppWelcome'));
+    if (!hasWelcome) ok('登录后不再出现欢迎弹窗');
+    else bad('登录后不再出现欢迎弹窗', '仍存在 #ppWelcome');
 
     await ctx.close();
   }
 
-  // ---------- 2. 管理员弹窗内容不同 ----------
+  // ---------- 2. 管理员登录后看到概览 ----------
   {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await ctx.newPage();
     page.setDefaultTimeout(30000);
     await login(page, 'D-ADMIN');
-    const text = await page.evaluate(() => {
-      const d = document.getElementById('ppWelcome');
-      return d ? d.innerText : '';
-    });
-    if (text.includes('管理员')) ok('管理员看到的说明不同', text.slice(0, 40).replace(/\n/g, ' '));
-    else bad('管理员看到的说明不同', text.slice(0, 80));
+    const text = await page.evaluate(() => document.body.innerText);
+    if (text.includes('概览') && text.includes('待审核记录')) {
+      ok('管理员登录后看到待办概览');
+    } else {
+      bad('管理员登录后看到待办概览', text.slice(0, 100));
+    }
     await ctx.close();
   }
 
@@ -139,7 +125,7 @@ async function login(page, user) {
     await ctx.close();
   }
 
-  // ---------- 4. 导航：无「统计报表」给干事，有「审核」 ----------
+  // ---------- 4. 导航：普通干事只保留日常工作入口 ----------
   {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await ctx.newPage();
@@ -150,14 +136,16 @@ async function login(page, user) {
       document.getElementById('ppNav').innerText.replace(/\s+/g, ' '));
     if (!navText.includes('统计报表')) ok('干事导航里没有统计报表', navText.slice(0, 60));
     else bad('干事导航里没有统计报表', navText);
-    if (navText.includes('审核')) ok('导航里有「审核」（已改名）', navText.slice(0, 60));
-    else bad('导航里有「审核」（已改名）', navText);
+    if (!navText.includes('审核')) ok('没有审核授权时不显示「审核」', navText.slice(0, 60));
+    else bad('没有审核授权时不显示「审核」', navText);
+    if (navText.includes('我的工作')) ok('待办与提交合并为「我的工作」');
+    else bad('待办与提交合并为「我的工作」', navText);
     if (!navText.includes('工作类型')) ok('顶层导航不再单独列「工作类型」');
     else bad('顶层导航不再单独列「工作类型」', navText);
     await ctx.close();
   }
 
-  // ---------- 5. 管理员导航仍有报表 ----------
+  // ---------- 5. 管理员导航把报表归入管理 ----------
   {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await ctx.newPage();
@@ -166,12 +154,14 @@ async function login(page, user) {
     await page.goto(BASE + '/my/tasks/', { waitUntil: 'networkidle' });
     const navText = await page.evaluate(() =>
       document.getElementById('ppNav').innerText.replace(/\s+/g, ' '));
-    if (navText.includes('统计报表')) ok('管理员导航仍有统计报表');
-    else bad('管理员导航仍有统计报表', navText);
+    if (navText.includes('管理')) ok('管理员导航使用「管理」入口');
+    else bad('管理员导航使用「管理」入口', navText);
+    if (!navText.includes('统计报表')) ok('低频报表不再占顶级导航');
+    else bad('低频报表不再占顶级导航', navText);
     await ctx.close();
   }
 
-  // ---------- 6. 工作台不再有「系统能做什么」 ----------
+  // ---------- 6. 管理员首页是可行动的概览 ----------
   {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await ctx.newPage();
@@ -179,10 +169,22 @@ async function login(page, user) {
     await login(page, 'D-ADMIN');
     await page.goto(BASE + '/', { waitUntil: 'networkidle' });
     const body = await page.evaluate(() => document.body.innerText);
-    if (!body.includes('系统能做什么')) ok('工作台已移除能力说明清单');
-    else bad('工作台已移除能力说明清单', '仍存在"系统能做什么"');
+    if (body.includes('概览') && body.includes('待审核记录')) ok('管理员首页展示待办概览');
+    else bad('管理员首页展示待办概览', body.slice(0, 120));
     if (!body.includes('工程底座')) ok('工作台不再出现工程术语');
     else bad('工作台不再出现工程术语', '仍出现"工程底座"');
+    await ctx.close();
+  }
+
+  // ---------- 6b. 社团管理员可直接管理成员账号 ----------
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await ctx.newPage();
+    await login(page, 'D-ADMIN');
+    await page.goto(BASE + '/manage/members/', { waitUntil: 'networkidle' });
+    const body = await page.evaluate(() => document.body.innerText);
+    if (body.includes('成员管理') && body.includes('新建成员')) ok('管理员可进入成员管理');
+    else bad('管理员可进入成员管理', body.slice(0, 120));
     await ctx.close();
   }
 

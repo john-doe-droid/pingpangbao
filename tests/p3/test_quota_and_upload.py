@@ -5,12 +5,13 @@
 它们必须用真实多线程 + 真实数据库验证，而不是顺序模拟。
 """
 import threading
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from core.upload_config import get_upload_limits
-from core.storage import get_storage
 from submissions import orchestration, services
 from submissions.models import (
     Attachment,
@@ -21,6 +22,22 @@ from submissions.models import (
 from submissions.pipeline import prepare_image, record_orphans
 
 from .conftest import make_image_bytes, make_upload
+
+
+def test_image_quota_uses_academic_semester_boundaries():
+    tz = ZoneInfo("Asia/Shanghai")
+    assert services.image_quota_period_start(
+        datetime(2026, 3, 1, 0, 0, tzinfo=tz)
+    ).date().isoformat() == "2026-03-01"
+    assert services.image_quota_period_start(
+        datetime(2026, 8, 31, 23, 59, tzinfo=tz)
+    ).date().isoformat() == "2026-03-01"
+    assert services.image_quota_period_start(
+        datetime(2026, 9, 1, 0, 0, tzinfo=tz)
+    ).date().isoformat() == "2026-09-01"
+    assert services.image_quota_period_start(
+        datetime(2027, 2, 28, 23, 59, tzinfo=tz)
+    ).date().isoformat() == "2026-09-01"
 
 
 # ===========================================================================
@@ -75,6 +92,45 @@ class TestSingleFileLimits:
             item = prepare_link(good)
             assert item.external_url == good
             assert item.size_bytes == 0        # 链接不占存储
+
+    def test_too_many_images_rejected_before_upload(self, p3_assignment, p3_member):
+        class ManyImages:
+            def getlist(self, name):
+                if name == "images":
+                    return [
+                        SimpleUploadedFile("x.jpg", b"x", content_type="image/jpeg")
+                        for _ in range(21)
+                    ]
+                return []
+
+            def get(self, name):
+                return None
+
+        with pytest.raises(services.SubmissionError, match="最多提交 20 张"):
+            orchestration.submit_new(
+                assignment_id=p3_assignment.pk,
+                user=p3_member,
+                text_content="测试",
+                post_data={"text_content": "测试"},
+                files=ManyImages(),
+            )
+
+    def test_overlong_text_rejected_before_upload(self, p3_assignment, p3_member):
+        class NoFiles:
+            def getlist(self, name):
+                return []
+
+            def get(self, name):
+                return None
+
+        with pytest.raises(services.SubmissionError, match="不能超过 20000"):
+            orchestration.submit_new(
+                assignment_id=p3_assignment.pk,
+                user=p3_member,
+                text_content="x" * 20001,
+                post_data={"text_content": "x" * 20001},
+                files=NoFiles(),
+            )
 
 
 # ===========================================================================
@@ -435,6 +491,16 @@ class TestPrivateStorage:
         settings.PRIVATE_MEDIA_ROOT = None
         reset_storage_cache()
         with pytest.raises(StorageConfigError):
+            build_storage()
+
+    def test_private_root_cannot_be_inside_public_media(self, settings):
+        from core.storage import StorageConfigError, build_storage
+
+        settings.DEBUG = False
+        settings.PRIVATE_STORAGE_BACKEND = "local"
+        settings.PRIVATE_MEDIA_ROOT = settings.MEDIA_ROOT / "private"
+        settings.PRIVATE_MEDIA_ROOT_IS_EXPLICIT = True
+        with pytest.raises(StorageConfigError, match="不能位于"):
             build_storage()
 
     def test_unknown_backend_rejected(self, settings):

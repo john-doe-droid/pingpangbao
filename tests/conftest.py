@@ -30,10 +30,10 @@ def new_password():
 def make_user(db):
     """创建用户；默认要求首登改密（与管理员创建账号的默认行为一致）。"""
 
-    def _make(student_id="2025317020104", password=TEST_PASSWORD, **extra):
+    def _make(account="2025317020104", password=TEST_PASSWORD, **extra):
         extra.setdefault("real_name", "测试同学")
         extra.setdefault("must_change_password", True)
-        return User.objects.create_user(student_id=student_id, password=password, **extra)
+        return User.objects.create_user(account=account, password=password, **extra)
 
     return _make
 
@@ -41,7 +41,7 @@ def make_user(db):
 @pytest.fixture
 def active_user(make_user):
     """已通过首登改密、可正常使用的用户。"""
-    user = make_user(student_id="2025317020199")
+    user = make_user(account="2025317020199")
     user.must_change_password = False
     user.save(update_fields=["must_change_password"])
     return user

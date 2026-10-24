@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import ast
-import os
 import re
 import sys
 from pathlib import Path
@@ -142,11 +141,21 @@ def check_dockerfile(rep: Report) -> None:
     else:
         rep.fail("镜像内置健康检查", "HEALTHCHECK 未指向 /health/ready")
 
-    # 5) 启动时先迁移再起服务
-    if "migrate --noinput" in text and "gunicorn" in text:
-        rep.ok("启动顺序正确", "先 migrate 再 gunicorn")
+    # 5) 启动时刷新静态资源、迁移，再起服务
+    command_match = re.search(r'^CMD\s+\["sh",\s*"-c",\s*"([^"]+)"\]', text, re.M)
+    command = command_match.group(1) if command_match else ""
+    positions = [
+        command.find("collectstatic --noinput"),
+        command.find("migrate --noinput"),
+        command.find("gunicorn"),
+    ]
+    if all(pos >= 0 for pos in positions) and positions == sorted(positions):
+        rep.ok("启动顺序正确", "collectstatic → migrate → gunicorn")
     else:
-        rep.fail("启动顺序正确", "启动命令应包含 migrate 与 gunicorn")
+        rep.fail(
+            "启动顺序正确",
+            "启动命令必须依次包含 collectstatic、migrate 与 gunicorn",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -176,9 +185,8 @@ def check_compose(rep: Report) -> None:
 
     try:
         import yaml  # noqa: F401
-        shell_only = False
     except ImportError:
-        shell_only = False
+        pass
 
     app = _service_block(text, "app")
     db = _service_block(text, "db")
@@ -210,11 +218,11 @@ def check_compose(rep: Report) -> None:
         rep.fail("存储后端默认 local", "未找到 PRIVATE_STORAGE_BACKEND 默认值")
 
     # 4) 数据库数据也落在宿主机（与附件同根，便于备份）
-    if re.search(r"^\s*-\s*\S*postgres:/var/lib/postgresql/data\s*$", db, re.M):
-        rep.ok("数据库数据落在宿主机目录", "与附件同根，备份只需处理一个目录")
+    if re.search(r"^\s*-\s*\S*postgres:/var/lib/postgresql\s*$", db, re.M):
+        rep.ok("数据库数据落在宿主机目录", "PostgreSQL 18 使用 /var/lib/postgresql")
     else:
         rep.fail("数据库数据落在宿主机目录",
-                 "db 仍用具名卷 —— 备份/迁移需绕 docker volume 命令，易漏")
+                 "db 未挂载 PostgreSQL 18 的正确持久化目录 /var/lib/postgresql")
 
     # 5) 数据库不对外发布端口
     if re.search(r"^\s*ports:", db, re.M):
@@ -239,6 +247,55 @@ def check_compose(rep: Report) -> None:
         rep.fail("compose 不含真实密钥", "compose 里疑似写死了 SECRET_KEY")
     else:
         rep.ok("compose 不含真实密钥", "敏感值均来自 .env")
+
+    nginx_conf = (BASE_DIR / "deploy" / "nginx" / "pingpong.conf")
+    nginx_text = nginx_conf.read_text(encoding="utf-8") if nginx_conf.exists() else ""
+    if (
+        "/etc/nginx/templates/default.conf.template" in nginx
+        and 'DOMAIN: "${DOMAIN:' in nginx
+        and "server_name ${DOMAIN};" in nginx_text
+        and "/live/${DOMAIN}/fullchain.pem" in nginx_text
+    ):
+        rep.ok("Nginx 域名通过环境变量注入", "DOMAIN → 模板替换")
+    else:
+        rep.fail(
+            "Nginx 域名通过环境变量注入",
+            "Nginx 应挂载为模板，并从 .env 注入 DOMAIN",
+        )
+
+    if (
+        'TRUST_PROXY_HEADERS: "true"' in app
+        and "proxy_set_header X-Forwarded-For   $remote_addr;" in nginx_text
+        and "proxy_set_header X-Real-IP $remote_addr;" in nginx_text
+    ):
+        rep.ok("可信代理头已覆盖", "客户端无法伪造 X-Forwarded-For")
+    else:
+        rep.fail("可信代理头已覆盖", "应用信任代理头，但 Nginx 未覆盖客户端来源头")
+
+    health_blocks = nginx_text.split("location /health/", 1)
+    if len(health_blocks) == 2 and (
+        "proxy_set_header X-Forwarded-Proto $scheme;" in health_blocks[1].split("}", 1)[0]
+    ):
+        rep.ok("健康检查保留转发协议", "HTTPS 下不会重定向循环")
+    else:
+        rep.fail("健康检查保留转发协议", "health location 未设置 X-Forwarded-Proto")
+
+    if "limit_req_zone" in nginx_text and "location ~ ^/(accounts|admin)/login/" in nginx_text:
+        rep.ok("登录接口有限流", "Nginx 按来源 IP 限制登录请求")
+    else:
+        rep.fail("登录接口有限流", "Nginx 未保护账号和管理员登录入口")
+
+    # 容器内健康检查请求 127.0.0.1，必须显式出现在 allowed hosts 中。
+    if (
+        'DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:' in app
+        and ",127.0.0.1\"" in app
+    ):
+        rep.ok("健康检查 Host 在允许列表中", "生产域名 + 127.0.0.1")
+    else:
+        rep.fail(
+            "健康检查 Host 在允许列表中",
+            "compose 健康检查使用 127.0.0.1，但 ALLOWED_HOSTS 未补充该地址",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -305,8 +362,10 @@ def check_repo_hygiene(rep: Report) -> None:
             cwd=str(BASE_DIR), capture_output=True, encoding="utf-8",
             errors="replace", timeout=60,
         ).stdout
-        hits = [l for l in out.splitlines()
-                if "example" not in l.lower() and "你的" not in l and "xxx" not in l.lower()]
+        hits = [line for line in out.splitlines()
+                if "example" not in line.lower()
+                and "你的" not in line
+                and "xxx" not in line.lower()]
     except Exception as exc:  # noqa: BLE001
         rep.skip("库内无真实凭据", "无法执行 git grep：%r" % exc)
         return
@@ -353,6 +412,11 @@ def check_prod_settings(rep: Report) -> None:
     else:
         rep.fail("生产 DEBUG 强制关闭", "prod.py 未强制 DEBUG=False")
 
+    if "SECURE_REDIRECT_EXEMPT" in text and "health" in text:
+        rep.ok("健康检查绕过 HTTPS 跳转", "容器可通过内部 HTTP 检查数据库")
+    else:
+        rep.fail("健康检查绕过 HTTPS 跳转", "内部 healthcheck 只会拿到 301")
+
 
 # ---------------------------------------------------------------------------
 # 文档
@@ -370,10 +434,14 @@ def check_docs(rep: Report) -> None:
     required = {
         "服务器初始化": ["apt update", "docker"],
         "数据目录与权限": ["chown", "1001"],
-        "生产配置": ["DJANGO_SECRET_KEY", "PRIVATE_MEDIA_ROOT", "PINGPONG_DATA_DIR"],
-        "HTTPS": ["certbot"],
+        "生产配置": [
+            "DJANGO_SECRET_KEY", "DOMAIN", "PRIVATE_MEDIA_ROOT", "PINGPONG_DATA_DIR",
+        ],
+        "HTTPS": [
+            "init-certificates.sh", "renew-certificates.sh", "acme-bootstrap.conf",
+        ],
         "健康检查": ["/health/ready"],
-        "备份": ["pg_dump", "pg_restore"],
+        "备份": ["backup.sh", "install -d", "pg_restore", "服务器之外"],
         "故障排查": ["StorageConfigError", "502"],
         "上线清单": ["检查清单"],
     }
@@ -396,11 +464,30 @@ def check_docs(rep: Report) -> None:
     env_ex = BASE_DIR / ".env.example"
     if env_ex.exists():
         et = env_ex.read_text(encoding="utf-8")
-        if "PRIVATE_MEDIA_ROOT" in et and "PINGPONG_DATA_DIR" in et:
-            rep.ok(".env.example 与部署方案一致", "含本地磁盘与数据目录变量")
+        if (
+            "DOMAIN" in et
+            and "PRIVATE_MEDIA_ROOT" in et
+            and "PINGPONG_DATA_DIR" in et
+        ):
+            rep.ok(
+                ".env.example 与部署方案一致",
+                "含 DOMAIN、本地磁盘与数据目录变量",
+            )
         else:
             rep.fail(".env.example 与部署方案一致",
-                     "缺少 PRIVATE_MEDIA_ROOT 或 PINGPONG_DATA_DIR")
+                     "缺少 DOMAIN、PRIVATE_MEDIA_ROOT 或 PINGPONG_DATA_DIR")
+
+    scripts = [
+        BASE_DIR / "deploy" / "init-certificates.sh",
+        BASE_DIR / "deploy" / "renew-certificates.sh",
+        BASE_DIR / "deploy" / "backup.sh",
+        BASE_DIR / "deploy" / "nginx" / "acme-bootstrap.conf",
+    ]
+    missing_scripts = [str(path.relative_to(BASE_DIR)) for path in scripts if not path.exists()]
+    if missing_scripts:
+        rep.fail("部署辅助脚本完整", "缺少：%s" % "、".join(missing_scripts))
+    else:
+        rep.ok("部署辅助脚本完整", "证书初始化、续期、备份、ACME 引导")
 
 
 # ---------------------------------------------------------------------------
@@ -426,6 +513,11 @@ def check_environment(rep: Report) -> None:
 
 
 def main() -> int:
+    # Windows 默认控制台可能是 GBK，输出勾选符号会 UnicodeEncodeError。
+    # 部署检查本身仍应完整跑完，并明确报告失败项。
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     verbose = "-v" in sys.argv or "--verbose" in sys.argv
     rep = Report(verbose=verbose)
     print("部署配置自检 —— 项目：%s" % BASE_DIR)

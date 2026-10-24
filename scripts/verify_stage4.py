@@ -273,24 +273,24 @@ def cleanup():
     # ReviewLog.version 也是 PROTECT，必须先删审核记录
     from reviews.models import ReviewLog
     ReviewLog.objects.filter(
-        submission__assignment__member__student_id__startswith=MARK).delete()
-    ReviewLog.objects.filter(reviewer__student_id__startswith=MARK).delete()
-    Attachment.objects.filter(uploaded_by__student_id__startswith=MARK).delete()
+        submission__assignment__member__account__startswith=MARK).delete()
+    ReviewLog.objects.filter(reviewer__account__startswith=MARK).delete()
+    Attachment.objects.filter(uploaded_by__account__startswith=MARK).delete()
     Attachment.objects.filter(
-        version__submission__assignment__member__student_id__startswith=MARK).delete()
-    SubmissionVersion.objects.filter(submitted_by__student_id__startswith=MARK).delete()
+        version__submission__assignment__member__account__startswith=MARK).delete()
+    SubmissionVersion.objects.filter(submitted_by__account__startswith=MARK).delete()
     SubmissionVersion.objects.filter(
-        submission__assignment__member__student_id__startswith=MARK).delete()
+        submission__assignment__member__account__startswith=MARK).delete()
     Submission.objects.filter(
-        assignment__member__student_id__startswith=MARK).delete()
+        assignment__member__account__startswith=MARK).delete()
     ReviewerAssignment.objects.filter(competition__name__startswith="[VF4]").delete()
-    TaskAssignment.objects.filter(member__student_id__startswith=MARK).delete()
+    TaskAssignment.objects.filter(member__account__startswith=MARK).delete()
     TaskAssignment.objects.filter(task__competition__name__startswith="[VF4]").delete()
     CompetitionTask.objects.filter(competition__name__startswith="[VF4]").delete()
     TaskTemplate.objects.filter(name__startswith="[VF4]").delete()
     Competition.objects.filter(name__startswith="[VF4]").delete()
     WorkType.objects.filter(name__startswith="[VF4]").delete()
-    U.objects.filter(student_id__startswith=MARK).delete()
+    U.objects.filter(account__startswith=MARK).delete()
 
 def jpg(c=(9,9,9)):
     im = Image.new("RGB",(800,600),c); b=io.BytesIO(); im.save(b,"JPEG"); return b.getvalue()
@@ -302,7 +302,7 @@ class FF:
         v=self._d.get(k); return v[0] if isinstance(v,list) and v else v
 
 def mk(sid,name,code=None):
-    u=U.objects.create_user(student_id=sid,password="Vf4!Passw0rd9",real_name=name)
+    u=U.objects.create_user(account=sid,password="Vf4!Passw0rd9",real_name=name)
     u.must_change_password=False; u.save(update_fields=["must_change_password"])
     if code:
         r,_=Role.objects.get_or_create(code=code,defaults={"name":code}); u.roles.add(r)
@@ -420,23 +420,23 @@ def cleanup():
     # ReviewLog.version 也是 PROTECT，必须先删审核记录
     from reviews.models import ReviewLog
     ReviewLog.objects.filter(
-        submission__assignment__member__student_id__startswith=MARK).delete()
-    ReviewLog.objects.filter(reviewer__student_id__startswith=MARK).delete()
-    Attachment.objects.filter(uploaded_by__student_id__startswith=MARK).delete()
+        submission__assignment__member__account__startswith=MARK).delete()
+    ReviewLog.objects.filter(reviewer__account__startswith=MARK).delete()
+    Attachment.objects.filter(uploaded_by__account__startswith=MARK).delete()
     Attachment.objects.filter(
-        version__submission__assignment__member__student_id__startswith=MARK).delete()
-    SubmissionVersion.objects.filter(submitted_by__student_id__startswith=MARK).delete()
+        version__submission__assignment__member__account__startswith=MARK).delete()
+    SubmissionVersion.objects.filter(submitted_by__account__startswith=MARK).delete()
     SubmissionVersion.objects.filter(
-        submission__assignment__member__student_id__startswith=MARK).delete()
-    Submission.objects.filter(assignment__member__student_id__startswith=MARK).delete()
+        submission__assignment__member__account__startswith=MARK).delete()
+    Submission.objects.filter(assignment__member__account__startswith=MARK).delete()
     ReviewerAssignment.objects.filter(competition__name__startswith="[VF4B]").delete()
-    TaskAssignment.objects.filter(member__student_id__startswith=MARK).delete()
+    TaskAssignment.objects.filter(member__account__startswith=MARK).delete()
     TaskAssignment.objects.filter(task__competition__name__startswith="[VF4B]").delete()
     CompetitionTask.objects.filter(competition__name__startswith="[VF4B]").delete()
     TaskTemplate.objects.filter(name__startswith="[VF4B]").delete()
     Competition.objects.filter(name__startswith="[VF4B]").delete()
     WorkType.objects.filter(name__startswith="[VF4B]").delete()
-    U.objects.filter(student_id__startswith=MARK).delete()
+    U.objects.filter(account__startswith=MARK).delete()
 
 def jpg():
     im=Image.new("RGB",(600,400),(5,5,5)); b=io.BytesIO(); im.save(b,"JPEG"); return b.getvalue()
@@ -447,7 +447,7 @@ class FF:
     def get(self,k):
         v=self._d.get(k); return v[0] if isinstance(v,list) and v else v
 def mk(sid,name,code=None):
-    u=U.objects.create_user(student_id=sid,password="Vf4b!Passw0rd9",real_name=name)
+    u=U.objects.create_user(account=sid,password="Vf4b!Passw0rd9",real_name=name)
     u.must_change_password=False; u.save(update_fields=["must_change_password"])
     if code:
         r,_=Role.objects.get_or_create(code=code,defaults={"name":code}); u.roles.add(r)
@@ -476,21 +476,21 @@ try:
 
     # A 看自己的 → 只有自己
     rows = statistics.by_member(a, ReportFilters())
-    ids = {r["student_id"] for r in rows}
-    if ids != {a.student_id}: problems.append("干事A 看到 %s，应只有自己" % ids)
+    ids = {r["account"] for r in rows}
+    if ids != {a.account}: problems.append("干事A 看到 %s，应只有自己" % ids)
 
     # A 显式筛 B → 不应拿到
     rows2 = statistics.by_member(a, ReportFilters(member_id=b.pk))
     if rows2: problems.append("干事A 用 member 参数筛 B 却拿到了 %d 行" % len(rows2))
 
     det_a = statistics.details(a, ReportFilters())
-    if {r["member_student_id"] for r in det_a} - {a.student_id}:
+    if {r["member_account"] for r in det_a} - {a.account}:
         problems.append("干事A 的明细里出现了他人记录")
 
     # 管理员看全部
     rows3 = statistics.by_member(admin, ReportFilters())
-    ids3 = {r["student_id"] for r in rows3}
-    if not {a.student_id, b.student_id} <= ids3:
+    ids3 = {r["account"] for r in rows3}
+    if not {a.account, b.account} <= ids3:
         problems.append("管理员应能看到全部，实际 %s" % ids3)
 finally:
     cleanup()

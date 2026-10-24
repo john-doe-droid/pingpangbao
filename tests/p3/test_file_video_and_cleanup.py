@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""P3 补充测试：文件/视频上传的成功路径、孤立对象清理命令、COS 后端下载。
+"""P3 补充测试：文件上传、孤立对象清理命令、非本地存储下载。
 
 补这些的原因（这些是 P3 交付后自查发现的缺口，不是环境阻塞）：
-  1. 原先只测了 file/video「被拒绝」，**没有测成功路径** ——
+  1. 原先只测了 file「被拒绝」，**没有测成功路径** ——
      真实缺陷（如类型判断写错）会被漏掉；
   2. `cleanup_orphans` 管理命令是 README 承诺的能力，必须有测试；
   3. 附件下载在 **COS 后端**（无本地路径）下的分支原先没有覆盖 ——
@@ -16,7 +16,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 
 from submissions.models import Attachment, OrphanObject
-from submissions.pipeline import prepare_file, prepare_video
+from submissions.pipeline import prepare_file
 from submissions.services import SubmissionError
 
 from .conftest import make_image_bytes, make_upload
@@ -31,11 +31,6 @@ def make_zip() -> bytes:
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("a.txt", "hello")
     return buf.getvalue()
-
-
-def make_mp4() -> bytes:
-    # 最小可识别的 mp4 头：size(4) + 'ftyp' + brand
-    return b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 200
 
 
 # ===========================================================================
@@ -62,6 +57,22 @@ class TestPrepareFile:
         item = prepare_file(upload, user=p3_member)
         assert item.detected_content_type == "application/zip"
         assert item.storage_key.endswith(".zip")
+
+    def test_utf8_text_accepted(self, p3_member):
+        upload = SimpleUploadedFile(
+            "notes.txt", "训练记录：正手 50 次".encode("utf-8"),
+            content_type="text/plain",
+        )
+        item = prepare_file(upload, user=p3_member)
+        assert item.detected_content_type == "text/plain"
+        assert item.storage_key.endswith(".txt")
+
+    def test_binary_disguised_as_text_rejected(self, p3_member):
+        upload = SimpleUploadedFile(
+            "notes.txt", b"\x00\x01\x02binary", content_type="text/plain",
+        )
+        with pytest.raises(SubmissionError):
+            prepare_file(upload, user=p3_member)
 
     def test_object_actually_stored(self, p3_member):
         """不只是返回对象 —— 文件应真的写进了私有存储。"""
@@ -114,79 +125,11 @@ class TestPrepareFile:
 
 
 # ===========================================================================
-# 视频：成功路径
+# 材料类型允许性：文件走完整提交路径
 # ===========================================================================
 
 @pytest.mark.django_db
-class TestPrepareVideo:
-
-    def test_mp4_accepted(self, p3_member):
-        upload = SimpleUploadedFile("clip.mp4", make_mp4(), content_type="video/mp4")
-        item = prepare_video(upload, user=p3_member)
-        assert item.material_type == "video"
-        assert item.detected_content_type == "video/mp4"
-        assert item.storage_key.endswith(".mp4")
-
-    def test_webm_accepted(self, p3_member):
-        # WebM 的 EBML 头
-        data = b"\x1a\x45\xdf\xa3" + b"\x00" * 200
-        upload = SimpleUploadedFile("clip.webm", data, content_type="video/webm")
-        item = prepare_video(upload, user=p3_member)
-        assert item.detected_content_type == "video/webm"
-
-    def test_mov_with_ftyp_accepted(self, p3_member):
-        """mov 同样含 ftyp box，按 mp4 容器处理。"""
-        upload = SimpleUploadedFile("clip.mov", make_mp4(),
-                                    content_type="video/quicktime")
-        item = prepare_video(upload, user=p3_member)
-        assert item.detected_content_type == "video/mp4"
-
-    def test_not_video_rejected(self, p3_member):
-        upload = SimpleUploadedFile("clip.mp4", make_pdf(), content_type="video/mp4")
-        with pytest.raises(SubmissionError) as exc:
-            prepare_video(upload, user=p3_member)
-        assert "无法识别视频格式" in str(exc.value)
-
-    def test_disallowed_extension_rejected(self, p3_member):
-        upload = SimpleUploadedFile("clip.avi", make_mp4(), content_type="video/x-msvideo")
-        with pytest.raises(SubmissionError):
-            prepare_video(upload, user=p3_member)
-
-    def test_large_video_not_read_into_memory(self, p3_member, settings):
-        """大文件不应被一次性读进内存。
-
-        这里用一个带 `temporary_file_path` 的替身模拟 Django 对
-        「超过 FILE_UPLOAD_MAX_MEMORY_SIZE 的上传」的处理方式，
-        验证管线走的是 save_from_path 而不是 read()。
-        """
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as fh:
-            fh.write(make_mp4() + b"\x00" * (2 * 1024 * 1024))
-            temp_path = fh.name
-
-        class TempFileUpload(SimpleUploadedFile):
-            def temporary_file_path(self):
-                return temp_path
-
-            def read(self, *args, **kwargs):
-                raise AssertionError("大文件不应走 read()（会整读进内存）")
-
-        upload = TempFileUpload("big.mp4", b"", content_type="video/mp4")
-        upload.size = 2 * 1024 * 1024 + 16
-        item = prepare_video(upload, user=p3_member)
-        assert item.size_bytes > 1024 * 1024
-
-        from core.storage import get_storage
-        assert get_storage().exists(item.storage_key)
-
-
-# ===========================================================================
-# 材料类型允许性：file/video 走完整提交路径
-# ===========================================================================
-
-@pytest.mark.django_db
-class TestAllowedFileVideoSubmission:
+class TestAllowedFileSubmission:
 
     def _make_task_allowing(self, p3_admin, p3_worktype, competition, **flags):
         from tasks.models import CompetitionTask, TaskTemplate
@@ -195,23 +138,23 @@ class TestAllowedFileVideoSubmission:
                         allow_image=True, require_image=True)
         defaults.update(flags)
         tpl = TaskTemplate.objects.create(
-            name="允许文件视频的模板", work_type=p3_worktype, created_by=p3_admin,
+            name="允许文件的模板", work_type=p3_worktype, created_by=p3_admin,
             max_records_per_member=1, **defaults)
         task = CompetitionTask.build_from_template(
             competition=competition, template=tpl, created_by=p3_admin)
         task.save()
         return task
 
-    def test_submit_with_file_and_video(self, p3_admin, p3_worktype,
-                                        p3_competition, p3_member):
-        """模板允许时，文件与视频应能随提交一起入库。"""
+    def test_submit_with_file(self, p3_admin, p3_worktype,
+                              p3_competition, p3_member):
+        """模板允许时，文件应能随提交一起入库。"""
         from submissions import orchestration
         from tasks.models import TaskAssignment
 
         task = self._make_task_allowing(
             p3_admin, p3_worktype, p3_competition,
             allow_file=True, require_file=True,
-            allow_video=True, require_video=True)
+        )
         asg = TaskAssignment.objects.create(
             task=task, member=p3_member, assigned_by=p3_admin)
 
@@ -233,62 +176,15 @@ class TestAllowedFileVideoSubmission:
             "images": [make_upload("i.jpg", make_image_bytes())],
             "files": [SimpleUploadedFile("r.pdf", make_pdf(),
                                          content_type="application/pdf")],
-            "video": [SimpleUploadedFile("v.mp4", make_mp4(),
-                                         content_type="video/mp4")],
         })
         sub = orchestration.submit_new(
             assignment_id=asg.pk, user=p3_member,
-            text_content="海报、报告与视频都交了", post_data={}, files=files,
+            text_content="海报与报告都交了", post_data={}, files=files,
         )
 
         types = set(sub.current_version.attachments.values_list("material_type", flat=True))
         assert "file" in types, "文件附件应入库"
-        assert "video" in types, "视频应入库"
         assert "image" in types
-
-    def test_video_not_counted_toward_image_quota(self, p3_admin, p3_worktype,
-                                                  p3_competition, p3_member):
-        """视频与文件**不**计入图片配额（本阶段只实现图片配额）。"""
-        from submissions import orchestration
-        from submissions.models import UserImageUsage
-        from tasks.models import TaskAssignment
-
-        # 注意：必须显式关掉图片必填 —— 模板默认 require_image=True，
-        # 否则会因「缺少图片证明」而失败（这是本测试第一版的错误）
-        task = self._make_task_allowing(
-            p3_admin, p3_worktype, p3_competition,
-            allow_image=False, require_image=False,
-            allow_file=True, require_file=False,
-            allow_video=True, require_video=False)
-        asg = TaskAssignment.objects.create(
-            task=task, member=p3_member, assigned_by=p3_admin)
-
-        class FakeFiles:
-            def __init__(self, d):
-                self._d = d
-
-            def getlist(self, key):
-                v = self._d.get(key, [])
-                return v if isinstance(v, list) else [v]
-
-            def get(self, key):
-                v = self._d.get(key)
-                if isinstance(v, list):
-                    return v[0] if v else None
-                return v
-
-        orchestration.submit_new(
-            assignment_id=asg.pk, user=p3_member, text_content="只交文件与视频",
-            post_data={},
-            files=FakeFiles({
-                "files": [SimpleUploadedFile("r.pdf", make_pdf(),
-                                             content_type="application/pdf")],
-                "video": [SimpleUploadedFile("v.mp4", make_mp4(),
-                                             content_type="video/mp4")],
-            }),
-        )
-        usage = UserImageUsage.objects.filter(user=p3_member).first()
-        assert usage is None or usage.image_count == 0, "非图片材料不应占用图片配额"
 
 
 # ===========================================================================
@@ -429,7 +325,6 @@ class TestDownloadWithoutLocalPath:
         # 直接访问私有文件视图（跳过签名跳转）
         from core.storage import get_storage
 
-        url = get_storage().presigned_url(att.storage_key)
         # presigned_url 用了真实实现，这里换成手写路径避免签名不匹配
         from django.core import signing
 
@@ -450,7 +345,7 @@ class TestDownloadWithoutLocalPath:
         from django.urls import reverse
 
         from core import storage as storage_mod
-        from core.storage import DOWNLOAD_SALT, verify_download_token
+        from core.storage import DOWNLOAD_SALT
         from django.core import signing
 
         att = Attachment.objects.filter(

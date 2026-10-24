@@ -42,7 +42,7 @@
           <dt class="pp-dl__label">提交人</dt>
           <dd class="pp-dl__value">
             {{ submission.assignment.member.real_name }}
-            （{{ submission.assignment.member.student_id }}）
+            （{{ submission.assignment.member.account }}）
           </dd>
         </div>
         <div class="pp-dl__row">
@@ -72,7 +72,7 @@
     <div class="pp-surface">
       <div class="pp-surface__header">
         <h2 class="pp-section-title">第 {{ v.version_no }} 版提交内容</h2>
-        <span class="pp-meta">待审</span>
+        <span class="pp-meta">审核对象</span>
       </div>
       <div class="pp-surface__body">
 

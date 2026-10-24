@@ -88,6 +88,11 @@ ufw status
 sudo mkdir -p /srv/pingpong-data/{postgres,private_media}
 ```
 
+> **PostgreSQL 18 挂载路径**：本项目的 compose 把数据目录挂到
+> `/var/lib/postgresql`。不要改回旧版的 `/var/lib/postgresql/data`；
+> PostgreSQL 18 的新数据目录在 `/var/lib/postgresql/18/docker`，
+> 旧挂载点不会用于保存数据库。
+
 ### 2.1 设置目录属主（否则容器写不进去）
 
 容器里的应用以 UID **1001** 运行，PostgreSQL 容器以 UID **999** 运行。
@@ -116,14 +121,14 @@ ls -ln /srv/pingpong-data
 
 ```bash
 sudo mkdir -p /srv/pingpong && sudo chown pingpong:pingpong /srv/pingpong
-git clone git@github.com:john-doe-droid/pingpong-stats.git /srv/pingpong/app
+git clone git@github.com:john-doe-droid/pingpangbao.git /srv/pingpong/app
 cd /srv/pingpong/app
 ```
 
 如果服务器上没有配 SSH key，改用 HTTPS：
 
 ```bash
-git clone https://github.com/john-doe-droid/pingpong-stats.git /srv/pingpong/app
+git clone https://github.com/john-doe-droid/pingpangbao.git /srv/pingpong/app
 ```
 
 **验证**：`ls` 能看到 `manage.py`、`docker-compose.yml`、`deploy/`。
@@ -154,6 +159,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(64))"
 DJANGO_SETTINGS_MODULE=config.settings.prod
 DJANGO_SECRET_KEY=<上一步生成的 64 位随机串>
 DJANGO_DEBUG=false
+DOMAIN=pingpong.example.com
 DJANGO_ALLOWED_HOSTS=pingpong.example.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://pingpong.example.com
 DJANGO_HTTPS_ENABLED=true
@@ -178,6 +184,7 @@ PINGPONG_DATA_DIR=/srv/pingpong-data
 | 变量 | 说明 |
 |---|---|
 | `DJANGO_SECRET_KEY` | 签名、会话加密都靠它。**少于 40 字符会直接报错**（这是刻意的）。换掉它会让所有人登录态失效。 |
+| `DOMAIN` | 生产裸域名。Nginx 模板和证书路径会自动使用它，不要写 `https://` 或路径。 |
 | `DJANGO_ALLOWED_HOSTS` | 只填域名，不要带 `https://`。填错的典型症状是访问出现 `DisallowedHost`。 |
 | `POSTGRES_HOST` | 必须是 `db`（compose 里的服务名）。写 `127.0.0.1` 会连不上——数据库在另一个容器里。 |
 | `PRIVATE_MEDIA_ROOT` | **容器内**路径，固定写 `/data/private_media`，由 compose 映射到宿主机目录。 |
@@ -264,52 +271,70 @@ HSTS 秒数      = 31536000
 
 ## 5. 配置域名与 HTTPS
 
-### 5.1 改 Nginx 里的域名
+### 5.1 确认域名配置
 
-仓库里的 `deploy/nginx/pingpong.conf` 用的是占位域名 `stat.example.com`，**必须换掉**，
-否则 Nginx 起不来（找不到证书文件）。
+域名只写在 `.env` 的 `DOMAIN` 中。Nginx 使用官方镜像的模板替换机制生成配置，
+不要再手工修改 `deploy/nginx/pingpong.conf`。
 
 ```bash
 cd /srv/pingpong/app
-sed -i 's/stat\.example\.com/你的域名/g' deploy/nginx/pingpong.conf
-grep -n "server_name" deploy/nginx/pingpong.conf   # 确认已替换
+grep '^DOMAIN=' .env
+grep '^DJANGO_ALLOWED_HOSTS=' .env
 ```
+
+两项都必须是同一个裸域名，例如 `pingpong.example.com`。
 
 ### 5.2 首次申请证书
 
-证书要在 Nginx 跑起来之前先拿到，所以先用「仅 HTTP」的方式启动 Nginx 拿证书。
+首次申请使用仓库提供的脚本。它会临时启动一个只开放 ACME 验证路径的 Nginx，
+拿到证书后自动清理临时容器，因此不会遇到「完整 Nginx 配置缺少证书而无法启动」的问题。
+临时站点配置是 `deploy/nginx/acme-bootstrap.conf`。
 
 ```bash
 cd /srv/pingpong/app
-mkdir -p deploy/certbot/www deploy/certbot/conf
+sh deploy/init-certificates.sh pingpong.example.com 你的邮箱
 ```
 
-先临时注释掉 443 段（或用下面的 certbot standalone 方式），推荐用 webroot：
+把域名和邮箱换成真实值。域名必须已经解析到当前服务器，且 80 端口没有被其他程序占用。
+
+**验证**：
 
 ```bash
-# 1) 先只起 nginx（此时 443 段因缺证书会失败，属正常，先看 80 是否通）
+ls deploy/certbot/conf/live/pingpong.example.com/
+pwd  # 必须仍为 /srv/pingpong/app；脚本返回后证书路径是相对它计算的
+```
+
+能看到 `fullchain.pem` 和 `privkey.pem` 才算成功。
+
+### 5.3 启动 Nginx 使 HTTPS 生效
+
+```bash
 docker compose up -d nginx
-
-# 2) 申请证书
-docker run --rm \
-  -v /srv/pingpong/app/deploy/certbot/www:/var/www/certbot \
-  -v /srv/pingpong/app/deploy/certbot/conf:/etc/letsencrypt \
-  certbot/certbot certonly --webroot -w /var/www/certbot \
-  -d 你的域名 --email 你的邮箱 --agree-tos --no-eff-email
-```
-
-**验证**：`ls deploy/certbot/conf/live/你的域名/` 能看到 `fullchain.pem` 和 `privkey.pem`。
-
-### 5.3 重启 Nginx 使 HTTPS 生效
-
-```bash
-docker compose restart nginx
+docker compose ps
 ```
 
 **验证**：浏览器打开 `https://你的域名`，证书有效、地址栏有小锁。
 
 > 若 80 端口被占用或证书申请失败，检查：域名是否真的解析到本机、`ufw` 是否放行 80、
 > 以及 Nginx 是否在跑。
+
+### 5.4 证书自动续期
+
+先把证书续期脚本加入 cron。脚本只在证书接近到期时真正续期，完成后让 Nginx 重新加载。
+
+```bash
+sudo install -d -m 750 -o pingpong -g pingpong /srv/backup
+sudo tee /etc/cron.d/pingpong-certbot > /dev/null <<'EOF'
+30 3 * * * pingpong cd /srv/pingpong/app && sh deploy/renew-certificates.sh >> /srv/backup/certbot-renew.log 2>&1
+EOF
+sudo chmod 644 /etc/cron.d/pingpong-certbot
+```
+
+**验证**：
+
+```bash
+sudo -u pingpong sh deploy/renew-certificates.sh
+```
 
 ---
 
@@ -320,14 +345,15 @@ cd /srv/pingpong/app
 docker compose up -d --build
 ```
 
-首次会构建镜像，约 3–8 分钟。构建过程中会执行 `collectstatic`。
+首次会构建镜像，约 3–8 分钟。构建阶段和容器启动时都会执行 `collectstatic`；
+启动时执行是为了让持久化静态卷在升级后拿到新的哈希文件。
 
 ### 6.1 容器启动时会自动做什么
 
 `app` 容器的启动命令是：
 
 ```
-python manage.py migrate --noinput && exec gunicorn config.wsgi:application -c deploy/gunicorn.conf.py
+python manage.py collectstatic --noinput && python manage.py migrate --noinput && exec gunicorn config.wsgi:application -c deploy/gunicorn.conf.py
 ```
 
 也就是**先跑数据库迁移，再启动 Gunicorn**。迁移是幂等的，重复启动安全。
@@ -374,12 +400,15 @@ docker compose exec app python manage.py createsuperuser
 
 ## 7. 首次使用前的准备
 
-登录后台后，按顺序配置：
+用刚创建的管理员登录网站，在「管理」中按顺序配置：
 
-1. **工作类型**（后台 → 工作类型）：定义社团的工作分类，如「场地预约」「器材维护」
-2. **比赛**（后台 → 比赛）：新建一届比赛
-3. **任务模板**（后台 → 任务模板）：为比赛定义任务项
-4. **成员与分配**：给干事分配具体任务
+1. **工作类型**：定义社团的工作分类，如「场地预约」「器材维护」
+2. **比赛**：新建一届比赛并开始进行
+3. **任务模板**：为比赛定义任务项
+4. **成员**：创建干事账号
+5. **比赛详情 → 任务与人员**：创建比赛任务并分配人员
+
+Django `/admin/` 只用于账号、角色和应急运维，日常业务配置全部在网站「管理」页面完成。
 
 > 顺序不能反：任务模板依赖比赛，任务分配依赖模板和成员。
 
@@ -433,21 +462,15 @@ Docker 服务本身已 `systemctl enable`，因此服务器重启后容器会自
 
 ### 9.1 备份
 
-推荐用 `pg_dump` 做逻辑备份（可跨版本恢复），再单独打包附件。
+仓库提供了备份脚本。它使用 `pg_dump` 做逻辑备份、打包附件，并在成功后才生成
+最终文件；任何一步失败都会保留错误退出码，不会用空文件假装备份成功。
 
 ```bash
-sudo mkdir -p /srv/backup
+sudo install -d -m 750 -o pingpong -g pingpong /srv/backup
 cd /srv/pingpong/app
+sudo -u pingpong sh deploy/backup.sh
 
-# 1) 数据库逻辑备份
-docker compose exec -T db pg_dump -U pingpong -d pingpong -Fc \
-  > /srv/backup/db_$(date +%F).dump
-
-# 2) 附件打包
-sudo tar czf /srv/backup/media_$(date +%F).tar.gz \
-  -C /srv/pingpong-data private_media
-
-# 3) 配置文件（含密钥，注意保管）
+# 配置文件含密钥，单独备份并严格限制权限
 sudo cp /srv/pingpong/app/.env /srv/backup/env_$(date +%F).bak
 sudo chmod 600 /srv/backup/env_*.bak
 ```
@@ -457,7 +480,7 @@ sudo chmod 600 /srv/backup/env_*.bak
 ```bash
 ls -lh /srv/backup/
 # dump 文件应有合理大小；0 字节说明备份失败
-docker compose exec -T db pg_restore -l < /srv/backup/db_$(date +%F).dump | head
+docker compose exec -T db pg_restore -l < "$(ls -1t /srv/backup/db_*.dump | head -n 1)" | head
 # 能列出内容清单即为有效备份
 ```
 
@@ -468,15 +491,14 @@ docker compose exec -T db pg_restore -l < /srv/backup/db_$(date +%F).dump | head
 ```bash
 sudo tee /etc/cron.d/pingpong-backup > /dev/null <<'EOF'
 # 每天凌晨 3:20 备份
-20 3 * * * pingpong cd /srv/pingpong/app && \
-  docker compose exec -T db pg_dump -U pingpong -d pingpong -Fc > /srv/backup/db_$(date +\%F).dump && \
-  tar czf /srv/backup/media_$(date +\%F).tar.gz -C /srv/pingpong-data private_media
+20 3 * * * pingpong cd /srv/pingpong/app && sh deploy/backup.sh >> /srv/backup/backup.log 2>&1
 EOF
 sudo chmod 644 /etc/cron.d/pingpong-backup
 ```
 
-> 注意 cron 里 `%` 必须写成 `\%`。
-> 备份文件会一直累积，记得定期清理旧备份，或加一条 `find /srv/backup -mtime +30 -delete`。
+备份脚本默认保留 30 天，可通过环境变量 `BACKUP_RETENTION_DAYS` 调整。
+`/srv/backup` 必须位于另一块磁盘或定期同步到其他机器/网盘，否则服务器磁盘损坏时
+数据库、附件和备份会一起丢失。
 
 ### 9.3 恢复
 
@@ -579,12 +601,12 @@ docker compose logs --tail=100 db
 
 1. 目录属主：`ls -ln /srv/pingpong-data/private_media` 应为 `1001 1001`
 2. 磁盘空间：`df -h`
-3. 文件大小是否超过上限（单图 10MiB，视频 300MiB，见 `.env` 的 `UPLOAD_*`）
+3. 文件大小是否超过上限（单图 10MiB，单文件 50MiB，单次提交 100MiB）
 4. 应用日志：`docker compose logs --tail=100 app`
 
-### 10.7 上传大视频报 413
+### 10.7 上传大文件报 413
 
-Nginx 的 `client_max_body_size` 是 320m。若调大了应用上限，需同步改
+Nginx 的 `client_max_body_size` 是 110m。若调大了应用上限，需同步改
 `deploy/nginx/pingpong.conf` 并 `docker compose restart nginx`。
 
 ### 10.8 附件下载 403 / 链接失效
@@ -608,8 +630,11 @@ timedatectl     # 应显示 NTP synchronized: yes
 - [ ] **`DEBUG=False`、`HTTPS 跳转=True`**（见 4.5，别照抄本地 `.env`）
 - [ ] 上传一张图片 → 页面能显示 → 点开大图能看
 - [ ] 用普通干事账号登录，**看不到**别人的工作记录
-- [ ] 上传一个接近 300MB 的视频不报错
+- [ ] 上传一个接近 50 MiB 上限的文件不报错
 - [ ] `docker compose restart app` 后，刚才上传的图片**仍然能打开**（证明落在持久目录）
-- [ ] 备份命令跑通，`pg_restore -l` 能列出内容
+- [ ] 重建应用镜像后，页面 CSS/JS 仍能正常加载（证明静态卷已刷新）
+- [ ] `sudo -u pingpong sh deploy/backup.sh` 跑通，且 `pg_restore -l` 能列出内容
+- [ ] `sudo -u pingpong sh deploy/renew-certificates.sh` 能完成检查并重载 Nginx
+- [ ] `/srv/backup` 已同步到服务器之外的另一份存储
 - [ ] `ufw status` 里 5432 和 8000 **没有**对公网开放
 - [ ] `.env` 权限是 `600`

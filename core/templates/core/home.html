@@ -1,44 +1,104 @@
 {% extends "base.html" %}
 
-{% block title %}工作台 · {{ SITE_NAME }}{% endblock %}
+{% block title %}概览 · {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
 <div class="container pp-container">
 
   <div class="pp-page-header">
     <div class="pp-page-header__main">
-      <h1 class="pp-page-title">工作台</h1>
+      <h1 class="pp-page-title">{% if user.is_authenticated %}概览{% else %}中国农业大学乒乓球社工作统计{% endif %}</h1>
+      {% if user.is_authenticated %}
+        <p class="pp-page-header__desc">先处理需要关注的事项，再进入比赛和配置。</p>
+      {% else %}
+        <p class="pp-page-header__desc">社团任务分配、成果提交审核与统计报表。</p>
+      {% endif %}
     </div>
   </div>
 
-  <div class="pp-surface">
-    <div class="pp-surface__header">
-      <h2 class="pp-section-title">从哪里开始</h2>
+  {% if user.is_authenticated %}
+    <div class="pp-stats pp-dashboard-stats">
+      <a class="pp-stat pp-stat--link" href="{% url 'submissions_admin:list' %}?status=pending">
+        <span class="pp-stat__num">{{ dashboard.pending_submissions }}</span>
+        <span class="pp-stat__label">待审核记录</span>
+      </a>
+      <a class="pp-stat pp-stat--link {% if dashboard.overdue_tasks %}pp-stat--alert{% endif %}"
+         href="{% url 'competitions:list' %}">
+        <span class="pp-stat__num">{{ dashboard.overdue_tasks }}</span>
+        <span class="pp-stat__label">已逾期任务</span>
+      </a>
+      <a class="pp-stat pp-stat--link" href="{% url 'submissions_admin:list' %}?status=needs_revision">
+        <span class="pp-stat__num">{{ dashboard.needs_revision }}</span>
+        <span class="pp-stat__label">待修改记录</span>
+      </a>
+      <a class="pp-stat pp-stat--link" href="{% url 'competitions:list' %}">
+        <span class="pp-stat__num">{{ dashboard.unassigned_tasks }}</span>
+        <span class="pp-stat__label">未分配任务</span>
+      </a>
+      <a class="pp-stat pp-stat--link" href="{% url 'competitions:list' %}">
+        <span class="pp-stat__num">{{ dashboard.active_competitions }}</span>
+        <span class="pp-stat__label">进行中比赛</span>
+      </a>
     </div>
-    <div class="pp-surface__body">
-      <div class="pp-entry-grid">
-        {% for entry in entries %}
-          <a class="pp-entry {% if entry.primary %}pp-entry--primary{% endif %}"
-             href="{{ entry.url }}">
-            <span class="pp-entry__label">{{ entry.label }}</span>
+
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">常用操作</h2>
+      </div>
+      <div class="pp-surface__body">
+        <div class="pp-entry-grid">
+          <a class="pp-entry pp-entry--primary" href="{% url 'competitions:create' %}">
+            <span class="pp-entry__label">新建比赛</span>
             <svg class="pp-entry__arrow" width="16" height="16" viewBox="0 0 24 24"
                  fill="none" aria-hidden="true" focusable="false">
               <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="1.8"
                     stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
+          <a class="pp-entry" href="{% url 'submissions_admin:list' %}">
+            <span class="pp-entry__label">查看全部记录</span>
+            <svg class="pp-entry__arrow" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a class="pp-entry" href="{% url 'reports:page' %}">
+            <span class="pp-entry__label">统计与导出</span>
+            <svg class="pp-entry__arrow" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a class="pp-entry" href="{% url 'members_admin:list' %}">
+            <span class="pp-entry__label">成员账号</span>
+            <svg class="pp-entry__arrow" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </div>
+
+        {% if user.is_superuser %}
+          <div class="pp-home-links">
+            <a href="/admin/">账号与后台</a>
+            <a href="{% url 'core:health_live' %}">服务状态</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="pp-surface">
+      <div class="pp-surface__body">
+        <p class="pp-meta">账号由社团管理员统一创建。</p>
+        {% for entry in entries %}
+          <a class="btn btn-primary" href="{{ entry.url }}">{{ entry.label }}</a>
         {% endfor %}
       </div>
-
-      {# 运维类入口只给超级管理员：普通成员不需要"服务状态"这类信息 #}
-      {% if user.is_superuser %}
-        <div class="pp-home-links">
-          <a href="/admin/">后台管理</a>
-          <a href="{% url 'core:health_live' %}">服务状态</a>
-        </div>
-      {% endif %}
     </div>
-  </div>
+  {% endif %}
 
 </div>
 {% endblock %}

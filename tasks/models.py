@@ -79,12 +79,11 @@ class WorkType(models.Model):
 class TaskTemplate(models.Model):
     """任务模板：定义一类工作要提交什么材料。
 
-    材料体系（本阶段只配置与展示要求，不做真实上传）：
+    材料体系：
         text    —— 文字说明
         image   —— 图片证明
         file    —— 文件附件
         link    —— 作品链接
-        video   —— 视频
 
     每类材料有两个开关：
         allow_<x>    是否允许提交
@@ -92,7 +91,7 @@ class TaskTemplate(models.Model):
     校验规则：必填必然意味着允许（require ⇒ allow），否则模板自相矛盾。
     """
 
-    MATERIAL_FIELDS = ("text", "image", "file", "link", "video")
+    MATERIAL_FIELDS = ("text", "image", "file", "link")
 
     name = models.CharField("模板名称", max_length=120)
     work_type = models.ForeignKey(
@@ -116,9 +115,6 @@ class TaskTemplate(models.Model):
 
     allow_link = models.BooleanField("允许作品链接", default=False)
     require_link = models.BooleanField("要求作品链接", default=False)
-
-    allow_video = models.BooleanField("允许视频", default=False)
-    require_video = models.BooleanField("要求视频", default=False)
 
     max_records_per_member = models.PositiveSmallIntegerField(
         "每名干事允许创建的工作记录数量", default=1,
@@ -170,10 +166,6 @@ class TaskTemplate(models.Model):
                 condition=Q(require_link=False) | Q(allow_link=True),
                 name="template_require_link_implies_allow",
             ),
-            models.CheckConstraint(
-                condition=Q(require_video=False) | Q(allow_video=True),
-                name="template_require_video_implies_allow",
-            ),
         ]
 
     def __str__(self):
@@ -188,7 +180,6 @@ class TaskTemplate(models.Model):
             "image": "图片证明",
             "file": "文件附件",
             "link": "作品链接",
-            "video": "视频",
         }
         rows = []
         for key in self.MATERIAL_FIELDS:
@@ -230,7 +221,6 @@ class TaskTemplate(models.Model):
             "allow_image": self.allow_image, "require_image": self.require_image,
             "allow_file": self.allow_file, "require_file": self.require_file,
             "allow_link": self.allow_link, "require_link": self.require_link,
-            "allow_video": self.allow_video, "require_video": self.require_video,
         }
 
     def snapshot_summary(self):
@@ -358,7 +348,7 @@ class CompetitionTask(models.Model):
         """按快照返回 [(标签, 是否允许, 是否必填), ...]。"""
         labels = {
             "text": "文字说明", "image": "图片证明", "file": "文件附件",
-            "link": "作品链接", "video": "视频",
+            "link": "作品链接",
         }
         rows = []
         for key, label in labels.items():
@@ -423,14 +413,6 @@ class CompetitionTask(models.Model):
 # 人员分配
 # ---------------------------------------------------------------------------
 
-class TaskAssignmentQuerySet(models.QuerySet):
-    def active(self):
-        return self.filter(is_active=True)
-
-    def for_member(self, user):
-        return self.filter(member=user, is_active=True)
-
-
 class TaskAssignment(models.Model):
     """任务 ↔ 干事 的分配关系。
 
@@ -467,8 +449,6 @@ class TaskAssignment(models.Model):
     )
     deactivated_at = models.DateTimeField("停用时间", null=True, blank=True)
     note = models.CharField("备注", max_length=200, blank=True)
-
-    objects = TaskAssignmentQuerySet.as_manager()
 
     class Meta:
         verbose_name = "任务分配"

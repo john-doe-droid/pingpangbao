@@ -107,6 +107,14 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 _https_on = env_bool("DJANGO_HTTPS_ENABLED", True)
 
 SECURE_SSL_REDIRECT = _https_on
+if _https_on and any(
+        not origin.lower().startswith("https://")
+        for origin in CSRF_TRUSTED_ORIGINS):
+    raise RuntimeError(
+        "HTTPS 已启用时，DJANGO_CSRF_TRUSTED_ORIGINS 必须全部使用 https://。"
+    )
+# 健康检查由容器/反向代理在内部以 HTTP 访问；不重定向才能真读数据库。
+SECURE_REDIRECT_EXEMPT = [r"^health/"]
 SESSION_COOKIE_SECURE = _https_on
 CSRF_COOKIE_SECURE = _https_on
 SECURE_HSTS_SECONDS = int(env("DJANGO_HSTS_SECONDS", "31536000")) if _https_on else 0
@@ -130,16 +138,6 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
-
-# ---------------------------------------------------------------------------
-# 邮件：生产环境用真实 SMTP，未配置则明确报错（不静默丢弃邮件）
-# ---------------------------------------------------------------------------
-EMAIL_BACKEND = env("DJANGO_EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
-EMAIL_HOST = env("DJANGO_EMAIL_HOST", "")
-EMAIL_PORT = int(env("DJANGO_EMAIL_PORT", "587"))
-EMAIL_HOST_USER = env("DJANGO_EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = env("DJANGO_EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = env_bool("DJANGO_EMAIL_USE_TLS", True)
 
 # ---------------------------------------------------------------------------
 # 日志：生产写文件，便于 Nginx 之外的应用侧排查

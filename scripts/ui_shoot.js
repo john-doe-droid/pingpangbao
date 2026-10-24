@@ -34,6 +34,7 @@ function pagesFor(ids) {
   const tpl = ids.template || 1;
   const task = ids.task || 1;
   const comp = ids.comp || 1;
+  const member = ids.member || 2;
   return [
     { name: '01-login', url: '/accounts/login/', as: null },
     { name: '02-home', url: '/', as: 'member1' },
@@ -62,7 +63,10 @@ function pagesFor(ids) {
     { name: '22-task-new', url: `/manage/tasks/competitions/${comp}/tasks/new/`, as: 'admin' },
     { name: '23-manage-records', url: '/manage/submissions/', as: 'admin' },
     { name: '24-reports', url: '/reports/', as: 'admin' },
-    { name: '25-password-change', url: '/accounts/password/change/', as: 'member1' },
+    { name: '25-members', url: '/manage/members/', as: 'admin' },
+    { name: '26-member-new', url: '/manage/members/new/', as: 'admin' },
+    { name: '27-member-password', url: `/manage/members/${member}/reset-password/`, as: 'admin' },
+    { name: '28-password-change', url: '/accounts/password/change/', as: 'member1' },
   ];
 }
 

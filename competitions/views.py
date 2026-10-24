@@ -167,7 +167,9 @@ def competition_detail(request, pk):
         "can_manage": can_manage,
         "can_configure_tasks": can_manage and competition.can_modify_tasks,
         "can_manage_reviewers": can_manage_reviewers(request.user, competition),
-        "reviewer_assignments": reviewer_assignments_for(competition),
+        "reviewer_assignments": (
+            reviewer_assignments_for(competition) if can_manage else []
+        ),
         "archive_form": ArchiveCompetitionForm(competition=competition),
         "page_title": competition.name,
     }

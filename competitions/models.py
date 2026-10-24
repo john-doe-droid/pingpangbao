@@ -147,18 +147,13 @@ class Competition(models.Model):
         return True
 
 
-class ReviewerAssignmentQuerySet(models.QuerySet):
-    def active(self):
-        return self.filter(is_active=True)
-
-
 class ReviewerAssignment(models.Model):
     """比赛 ↔ 审核人 的授权关系。
 
     关键约束（对应验收要求）：
     - 一场比赛可授权多名审核人（多条记录，不同 reviewer）；
     - 同一用户对同一场比赛只能有一条**有效**授权（部分唯一索引保证）；
-    - 审核权只能来自本表，不能由全局角色（如"全局查看"）推导。
+    - 审核权只能来自本表，不能由普通登录身份或管理身份推导。
     """
 
     competition = models.ForeignKey(
@@ -183,8 +178,6 @@ class ReviewerAssignment(models.Model):
     revoked_at = models.DateTimeField("撤销时间", null=True, blank=True)
     is_active = models.BooleanField("当前有效", default=True, db_index=True)
     note = models.CharField("备注", max_length=200, blank=True)
-
-    objects = ReviewerAssignmentQuerySet.as_manager()
 
     class Meta:
         verbose_name = "审核人授权"
