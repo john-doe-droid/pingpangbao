@@ -96,7 +96,7 @@ COPY --chown=app:app reports ./reports
 # 静态资源目录、日志目录与私有数据目录（collectstatic 与运行期写入需要）
 # /data 是 P5 的私有附件挂载点：生产由 docker-compose bind mount 到宿主机
 # 持久化目录；此处先建好并授权，使「未挂载时」的本地联调也能正常写入。
-RUN mkdir -p /app/staticfiles /app/media /app/logs /data/private_media \
+RUN mkdir -p /app/staticfiles /app/logs /data/private_media \
     && chown -R app:app /app /data
 
 USER app

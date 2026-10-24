@@ -149,6 +149,14 @@ class TestCompetitionPages:
         assert "进行中" in body
         assert "默认截止" in body
 
+    def test_member_list_uses_read_only_title(self, logged_in_client,
+                                              member_user, active_competition):
+        """干事看到的标题不应暗示自己拥有比赛管理权。"""
+        client = logged_in_client.as_(member_user)
+        body = client.get(reverse("competitions:list")).content.decode("utf-8")
+        assert '<h1 class="pp-page-title">比赛</h1>' in body
+        assert "查看比赛信息，以及分配给你的任务。" in body
+
     def test_archive_records_audit_log(self, logged_in_client, admin_user,
                                        active_competition):
         client = logged_in_client.as_(admin_user)

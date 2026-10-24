@@ -446,6 +446,7 @@ $env:DJANGO_SETTINGS_MODULE="config.settings.prod"
 
 > 完整、可照着敲的步骤见 **[`deploy/DEPLOY.md`](deploy/DEPLOY.md)**（服务器初始化、
 > 数据目录授权、HTTPS、备份恢复、故障排查、上线清单）。此处只列要点。
+> 使用 Azure 时，采购规格和预算参考见 **[`deploy/AZURE.md`](deploy/AZURE.md)**。
 
 **P5 起的数据策略：数据库与用户附件都存放在服务器的**一个持久化目录**里**
 （不是对象存储，也不是 Docker 具名卷）。默认位置 `/srv/pingpong-data`，

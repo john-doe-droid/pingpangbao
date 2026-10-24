@@ -69,7 +69,6 @@ services:
       PRIVATE_MEDIA_ROOT: "/data/private_media"
     volumes:
       - static:/app/staticfiles
-      - media:/app/media
       # P5：私有附件目录。必须落在宿主机持久化磁盘上，容器重建不丢数据。
       # 指向由 PINGPONG_DATA_DIR 决定的数据目录（见文件末尾说明）。
       - ${PINGPONG_DATA_DIR:-./data}/private_media:/data/private_media
@@ -98,9 +97,8 @@ services:
     volumes:
       - ./deploy/nginx/pingpong.conf:/etc/nginx/templates/default.conf.template:ro
       - static:/app/staticfiles:ro
-      - media:/app/media:ro
       # 注意：私有附件**不**给 nginx 挂载 —— 它必须经过 Django 鉴权后下发，
-      # 不能像 static/media 那样被反代直接服务。
+      # 不能像静态资源那样被反代直接服务。
 
       - ./deploy/certbot/www:/var/www/certbot:ro
       - ./deploy/certbot/conf:/etc/letsencrypt:ro
@@ -114,7 +112,6 @@ services:
 
 volumes:
   static:
-  media:
   applogs:
 # 说明（P5 数据落盘策略）：
 #   pgdata 与 private_media 均由具名卷改为 **宿主机目录 bind mount**，

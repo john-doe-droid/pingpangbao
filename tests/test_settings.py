@@ -236,3 +236,13 @@ def test_https_bootstrap_does_not_require_existing_certificate():
     assert "ssl_certificate" not in bootstrap
     assert "acme-bootstrap.conf" in init_script
     assert "certbot/certbot certonly --webroot" in init_script
+
+
+def test_unused_public_media_route_is_removed():
+    """项目没有公开 FileField，不应额外暴露空的 /media/ 路由。"""
+    compose = (BASE_DIR / "docker-compose.yml").read_text(encoding="utf-8")
+    nginx = (BASE_DIR / "deploy" / "nginx" / "pingpong.conf").read_text(
+        encoding="utf-8",
+    )
+    assert "media:/app/media" not in compose
+    assert "location /media/" not in nginx

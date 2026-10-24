@@ -250,6 +250,14 @@ def check_compose(rep: Report) -> None:
 
     nginx_conf = (BASE_DIR / "deploy" / "nginx" / "pingpong.conf")
     nginx_text = nginx_conf.read_text(encoding="utf-8") if nginx_conf.exists() else ""
+    if "location /media/" not in nginx_text and "media:/app/media" not in nginx:
+        rep.ok("Nginx 不暴露未使用的 media 目录", "只暴露静态资源")
+    else:
+        rep.fail(
+            "Nginx 不暴露未使用的 media 目录",
+            "项目没有公开 FileField，却仍保留了 /media/ 路由或挂载",
+        )
+
     if (
         "/etc/nginx/templates/default.conf.template" in nginx
         and 'DOMAIN: "${DOMAIN:' in nginx

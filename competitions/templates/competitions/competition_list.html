@@ -7,9 +7,13 @@
 
   <div class="pp-page-header">
     <div class="pp-page-header__main">
-      <h1 class="pp-page-title">比赛管理</h1>
+      <h1 class="pp-page-title">{% if can_manage %}比赛管理{% else %}比赛{% endif %}</h1>
       <p class="pp-page-header__desc">
-        草稿状态的比赛不对干事开放；归档后停止接收新的工作记录。
+        {% if can_manage %}
+          草稿状态的比赛不对干事开放；归档后停止接收新的工作记录。
+        {% else %}
+          查看比赛信息，以及分配给你的任务。
+        {% endif %}
       </p>
     </div>
     {% if can_manage %}
@@ -95,7 +99,13 @@
       <div class="pp-empty">
         <p class="pp-empty__title">当前没有符合条件的比赛</p>
         <p class="pp-empty__desc">
-          {% if current_status %}换一个状态筛选看看，或查看全部比赛。{% else %}创建第一场比赛后即可配置任务与分配人员。{% endif %}
+          {% if current_status %}
+            换一个状态筛选看看，或查看全部比赛。
+          {% elif can_manage %}
+            创建第一场比赛后即可配置任务与分配人员。
+          {% else %}
+            管理员发布比赛后会显示在这里。
+          {% endif %}
         </p>
         <div class="pp-inline-actions" style="justify-content: center;">
           {% if current_status %}
