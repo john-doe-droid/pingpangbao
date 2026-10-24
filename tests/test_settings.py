@@ -167,6 +167,7 @@ def test_env_file_is_gitignored():
     gitignore = (BASE_DIR / ".gitignore").read_text(encoding="utf-8")
     assert ".env" in gitignore
     assert "!.env.example" in gitignore, "必须显式放行 .env.example"
+    assert "deploy/certbot/" in gitignore, "TLS 私钥目录不得进入 Git"
 
 
 def test_env_example_has_no_real_secret():

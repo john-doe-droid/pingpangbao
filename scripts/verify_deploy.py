@@ -321,6 +321,7 @@ def check_repo_hygiene(rep: Report) -> None:
         ".env": "环境变量文件（含密钥）",
         "private_media/": "私有附件目录",
         "logs/": "日志目录",
+        "deploy/certbot/": "TLS 证书与私钥目录",
     }
     missing = [f"{p}（{d}）" for p, d in must_ignore.items() if p not in gtext]
     if missing:
