@@ -51,6 +51,9 @@ docker run --rm \
     certbot/certbot certonly --webroot -w /var/www/certbot \
     -d "$domain" --email "$email" --agree-tos --no-eff-email
 
-test -f "$conf_dir/live/$domain/fullchain.pem"
-test -f "$conf_dir/live/$domain/privkey.pem"
+docker run --rm \
+    -v "$conf_dir:/etc/letsencrypt:ro" \
+    --entrypoint sh certbot/certbot -c \
+    "test -f /etc/letsencrypt/live/$domain/fullchain.pem && \
+     test -f /etc/letsencrypt/live/$domain/privkey.pem"
 echo "证书已签发：$conf_dir/live/$domain"

@@ -123,7 +123,7 @@ ls -ln /srv/pingpong-data
 
 ```bash
 sudo mkdir -p /srv/pingpong && sudo chown pingpong:pingpong /srv/pingpong
-git clone git@github.com:john-doe-droid/pingpangbao.git /srv/pingpong/app
+git clone --branch master git@github.com:john-doe-droid/pingpangbao.git /srv/pingpong/app
 cd /srv/pingpong/app
 ```
 
@@ -302,8 +302,7 @@ sh deploy/init-certificates.sh pingpong.example.com 你的邮箱
 **验证**：
 
 ```bash
-ls deploy/certbot/conf/live/pingpong.example.com/
-pwd  # 必须仍为 /srv/pingpong/app；脚本返回后证书路径是相对它计算的
+sudo ls -l deploy/certbot/conf/live/pingpong.example.com/
 ```
 
 能看到 `fullchain.pem` 和 `privkey.pem` 才算成功。

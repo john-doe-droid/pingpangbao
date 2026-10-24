@@ -5,7 +5,6 @@ Gunicorn 生产配置。
 注意：Gunicorn 依赖 fcntl，**不能在 Windows 上运行**；
       本机开发请用 `python manage.py runserver`，生产用 Docker/Linux。
 """
-import multiprocessing
 import os
 
 # ---------------------------------------------------------------------------
@@ -18,8 +17,9 @@ backlog = 2048
 # ---------------------------------------------------------------------------
 # 进程模型
 # ---------------------------------------------------------------------------
-# 默认按 CPU 核数 * 2 + 1；容器里可通过环境变量固定，便于容量规划
-workers = int(os.environ.get("GUNICORN_WORKERS", multiprocessing.cpu_count() * 2 + 1))
+# 单机小流量默认 2 个 worker。此前的 CPU*2+1 在 4 GiB 机器上会启动 5 个，
+# 对 PostgreSQL + 图片处理来说没有必要。可按实际负载通过环境变量调高。
+workers = int(os.environ.get("GUNICORN_WORKERS", "2"))
 worker_class = "sync"
 threads = int(os.environ.get("GUNICORN_THREADS", "2"))
 worker_tmp_dir = "/dev/shm"          # 避免磁盘 I/O 拖慢心跳
