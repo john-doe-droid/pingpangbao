@@ -155,7 +155,7 @@ class TestCompetitionPages:
         client = logged_in_client.as_(member_user)
         body = client.get(reverse("competitions:list")).content.decode("utf-8")
         assert '<h1 class="pp-page-title">比赛</h1>' in body
-        assert "查看比赛信息，以及分配给你的任务。" in body
+        assert "新建比赛" not in body
 
     def test_archive_records_audit_log(self, logged_in_client, admin_user,
                                        active_competition):
@@ -579,6 +579,13 @@ class TestMemberPages:
 # ===========================================================================
 # 移动端可用性（结构层面）
 # ===========================================================================
+
+@pytest.mark.django_db
+def test_anonymous_home_redirects_to_login(client):
+    response = client.get(reverse("core:home"))
+    assert response.status_code == 302
+    assert response.url == reverse("accounts:login")
+
 
 @pytest.mark.django_db
 class TestMobileStructure:

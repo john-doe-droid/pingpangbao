@@ -8,10 +8,9 @@
   <div class="pp-page-header">
     <div class="pp-page-header__main">
       <h1 class="pp-page-title">我的工作</h1>
-      <p class="pp-page-header__desc">
-        待办、退回修改和提交入口都在这里。
-        {% if overdue_count %}其中 {{ overdue_count }} 项已逾期，逾期仍可提交，但会被标记。{% endif %}
-      </p>
+      {% if overdue_count %}
+        <p class="pp-page-header__desc">{{ overdue_count }} 项已逾期</p>
+      {% endif %}
     </div>
   </div>
 
@@ -64,9 +63,6 @@
             </tbody>
           </table>
         </div>
-      </div>
-      <div class="pp-surface__footer">
-        已达上限的任务不会再显示新的提交入口；被退回的记录仍可直接修改重提。
       </div>
     </div>
   {% else %}

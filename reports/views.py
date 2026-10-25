@@ -125,7 +125,7 @@ def export_xlsx(request):
 
     data = excel.render_xlsx_bytes(report)
     filename = excel.suggested_filename(
-        "乒乓球社工作统计", at=timezone.localtime())
+        "CAUpingpangclub", at=timezone.localtime())
 
     # 文件名含中文：用 RFC 5987 的 filename* 让各浏览器都能正确还原
     from urllib.parse import quote

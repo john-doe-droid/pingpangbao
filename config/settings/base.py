@@ -192,7 +192,7 @@ PASSWORD_CHANGE_REQUIRED_EXEMPT_PREFIXES = [
 ]
 
 # 站点元信息（模板使用）
-SITE_NAME = env("SITE_NAME", "中国农业大学乒乓球社工作统计")
+SITE_NAME = env("SITE_NAME", "CAUpingpangclub")
 
 # 登录失败限流：按“账号 + 可信来源 IP”计数。
 LOGIN_RATE_LIMIT_ATTEMPTS = int(env("LOGIN_RATE_LIMIT_ATTEMPTS", "5"))

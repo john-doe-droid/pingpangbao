@@ -7,17 +7,11 @@
 
   <div class="pp-page-header">
     <div class="pp-page-header__main">
-      <h1 class="pp-page-title">{% if user.is_authenticated %}概览{% else %}中国农业大学乒乓球社工作统计{% endif %}</h1>
-      {% if user.is_authenticated %}
-        <p class="pp-page-header__desc">先处理需要关注的事项，再进入比赛和配置。</p>
-      {% else %}
-        <p class="pp-page-header__desc">社团任务分配、成果提交审核与统计报表。</p>
-      {% endif %}
+      <h1 class="pp-page-title">概览</h1>
     </div>
   </div>
 
-  {% if user.is_authenticated %}
-    <div class="pp-stats pp-dashboard-stats">
+  <div class="pp-stats pp-dashboard-stats">
       <a class="pp-stat pp-stat--link" href="{% url 'submissions_admin:list' %}?status=pending">
         <span class="pp-stat__num">{{ dashboard.pending_submissions }}</span>
         <span class="pp-stat__label">待审核记录</span>
@@ -88,17 +82,7 @@
           </div>
         {% endif %}
       </div>
-    </div>
-  {% else %}
-    <div class="pp-surface">
-      <div class="pp-surface__body">
-        <p class="pp-meta">账号由社团管理员统一创建。</p>
-        {% for entry in entries %}
-          <a class="btn btn-primary" href="{{ entry.url }}">{{ entry.label }}</a>
-        {% endfor %}
-      </div>
-    </div>
-  {% endif %}
+  </div>
 
 </div>
 {% endblock %}

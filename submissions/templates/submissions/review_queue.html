@@ -8,21 +8,10 @@
   <div class="pp-page-header">
     <div class="pp-page-header__main">
       <h1 class="pp-page-title">审核队列</h1>
-      <p class="pp-page-header__desc">
-        只显示你被授权审核的比赛下的记录；你自己提交的记录不会出现在这里。
-      </p>
     </div>
   </div>
 
   {% include "includes/work_tabs.html" with active_tab="review" %}
-
-  {% if not competitions %}
-    <div class="alert alert-info" role="alert">
-      <span>
-        你目前不是任何比赛的审核人。审核权需要由管理员<strong>逐场授权</strong>。
-      </span>
-    </div>
-  {% endif %}
 
   {# ---------- 待审核 ---------- #}
   <div class="pp-surface">
@@ -81,9 +70,9 @@
         <p class="pp-empty__title">当前没有待审核的记录</p>
         <p class="pp-empty__desc">
           {% if competitions %}
-            干事提交后会出现在这里，你可以稍后再来查看。
+            暂无待处理记录。
           {% else %}
-            你尚未被授权审核任何比赛，授权后才能看到记录。
+            暂无审核授权。
           {% endif %}
         </p>
       </div>

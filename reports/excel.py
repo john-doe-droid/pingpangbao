@@ -286,7 +286,7 @@ def render_xlsx_bytes(report: dict) -> bytes:
     return buffer.getvalue()
 
 
-def suggested_filename(prefix: str = "乒乓球社工作统计", at=None) -> str:
+def suggested_filename(prefix: str = "CAUpingpangclub", at=None) -> str:
     """建议的下载文件名（带时间戳，避免多次导出互相覆盖）。"""
     stamp = (at or datetime.now()).strftime("%Y%m%d-%H%M")
     return "%s-%s.xlsx" % (prefix, stamp)

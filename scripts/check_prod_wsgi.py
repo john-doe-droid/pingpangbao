@@ -77,15 +77,21 @@ def main() -> int:
     print()
 
     # --- 关键页面 ---
-    for path in ("/health/live", "/health/ready", "/", "/accounts/login/"):
+    expected_status = {
+        "/health/live": 200,
+        "/health/ready": 200,
+        "/": 302,
+        "/accounts/login/": 200,
+    }
+    for path, expected in expected_status.items():
         status, _hd, body = call(application, path)
         code = int(status.split()[0])
         print("  %-24s %-10s %6dB" % (path, status, len(body)))
-        if code != 200:
-            failures.append("%s 返回 %s" % (path, status))
+        if code != expected:
+            failures.append("%s 返回 %s（预期 %s）" % (path, status, expected))
 
     # --- 静态资源（生产下应为 manifest 哈希路径）---
-    _st, _hd, body = call(application, "/")
+    _st, _hd, body = call(application, "/accounts/login/")
     assets = re.findall(r'/static/[^"\']+', body.decode("utf-8", "replace"))
     print("\n  首页引用静态资源 %d 个：" % len(assets))
     if not assets:
@@ -106,7 +112,7 @@ def main() -> int:
         )
 
     # --- 安全响应头 ---
-    _st, headers, _b = call(application, "/")
+    _st, headers, _b = call(application, "/accounts/login/")
     print("\n  安全响应头：")
     for header in ("X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy"):
         value = headers.get(header)

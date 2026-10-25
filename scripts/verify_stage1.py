@@ -530,7 +530,7 @@ def main() -> int:
     only = set(args.only.split(",")) if args.only else None
 
     print("=" * 74)
-    print("P1 阶段验证 —— 中国农业大学乒乓球社工作统计")
+    print("P1 阶段验证 —— CAUpingpangclub")
     print("项目目录：%s" % BASE_DIR)
     print("解释器  ：%s" % PYTHON)
     print("=" * 74)

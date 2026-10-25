@@ -17,13 +17,7 @@
     <div class="pp-page-header__main">
       <h1 class="pp-page-title">{{ competition.name }}</h1>
       <p class="pp-page-header__desc">
-        {% if competition.status == 'draft' %}
-          草稿状态 —— 尚未开放给干事查看
-        {% elif competition.status == 'active' %}
-          进行中 —— 可配置任务与分配人员
-        {% else %}
-          已归档 —— 已停止接收新工作记录
-        {% endif %}
+        {{ competition.event_date|date:"Y-m-d" }}
       </p>
     </div>
     {% if can_manage and not competition.is_archived %}
@@ -129,10 +123,7 @@
     {% else %}
       <div class="pp-empty" style="padding: var(--pp-space-6) var(--pp-space-4);">
         <p class="pp-empty__title">尚未授权任何审核人</p>
-        <p class="pp-empty__desc">
-          审核权需要逐场授权，管理员身份本身不自动获得审核权。
-          未授权时，本场记录不会出现在任何人的审核队列里。
-        </p>
+        <p class="pp-empty__desc">本场暂无审核人。</p>
         {% if can_manage_reviewers %}
           <a class="btn btn-primary"
              href="{% url 'competitions:reviewers' competition.pk %}">去授权</a>

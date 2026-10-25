@@ -2,13 +2,13 @@
 
 {% block title %}登录 · {{ SITE_NAME }}{% endblock %}
 
+{% block site_header %}{% endblock %}
+{% block site_footer %}{% endblock %}
 {% block main_class %}pp-main--auth{% endblock %}
 
 {% block content %}
-<div class="container pp-container pp-container--auth" style="padding-top: var(--pp-space-7);">
-
-  {# 产品标识：登录页是唯一"对外"的页面，这里把系统名说清楚 #}
-  <div class="pp-auth-head">
+<div class="container pp-container pp-container--auth pp-auth-shell">
+  <div class="pp-auth-brand">
     <svg class="pp-auth-head__mark" viewBox="0 0 24 24" fill="none"
          aria-hidden="true" focusable="false">
       <circle cx="12" cy="12" r="9.2" stroke="#1A73E8" stroke-width="1.8"/>
@@ -16,20 +16,16 @@
             stroke-width="1.3" stroke-linecap="round" opacity=".55"/>
       <circle cx="16.4" cy="7.6" r="2.4" fill="#1A73E8"/>
     </svg>
-    <h1 class="pp-auth-head__title">{{ SITE_NAME }}</h1>
-    <p class="pp-auth-head__desc">
-      账号由社团管理员统一创建，本系统不提供自助注册。
-    </p>
+    <h1 class="pp-auth-brand__name">{{ SITE_NAME }}</h1>
   </div>
 
-  <div class="pp-surface">
+  <div class="pp-surface pp-auth-panel">
     <div class="pp-surface__body">
+      <h2 class="pp-auth-heading">登录</h2>
 
       {% if form.non_field_errors %}
         <div class="alert alert-danger" role="alert">
-          <span>
-            {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-          </span>
+          {% for error in form.non_field_errors %}{{ error }}{% endfor %}
         </div>
       {% endif %}
 
@@ -59,13 +55,9 @@
 
         <button type="submit" class="btn btn-primary btn-lg w-100">登录</button>
       </form>
-
     </div>
   </div>
 
-  <p class="pp-meta text-center mt-3 mb-0">
-    忘记密码请联系社团管理员重置。
-  </p>
-
+  <p class="pp-auth-help">忘记密码请联系管理员</p>
 </div>
 {% endblock %}

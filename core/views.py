@@ -12,7 +12,6 @@ import logging
 from django.db import connection
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.views.decorators.cache import never_cache
 
 from core.permissions import user_is_admin
@@ -156,11 +155,7 @@ def private_file(request, key):
 def home(request):
     """登录后的角色化首页：成员直达工作，管理员查看待处理概览。"""
     if not request.user.is_authenticated:
-        return render(request, "core/home.html", {
-            "entries": [
-                {"label": "登录", "url": reverse("accounts:login"), "primary": True},
-            ],
-        })
+        return redirect("accounts:login")
 
     if not user_is_admin(request.user):
         return redirect("tasks:my_tasks")

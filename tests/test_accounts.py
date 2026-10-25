@@ -130,3 +130,12 @@ def test_login_page_has_no_register_link(client):
     assert not re.search(r'action="[^"]*regist[^"]*"', body, re.IGNORECASE)
     # 唯一的提交按钮是"登录"
     assert "type=\"submit\"" in body
+
+
+def test_login_page_is_a_standalone_centered_form(client):
+    body = client.get("/accounts/login/").content.decode("utf-8")
+    assert "CAUpingpangclub" in body
+    assert "pp-auth-panel" in body
+    assert 'name="username"' in body
+    assert 'name="password"' in body
+    assert 'class="pp-header"' not in body

@@ -7,7 +7,7 @@ from django.conf import settings
 def site_context(request):
     """全站通用：站点名称与 DEBUG 开关。"""
     return {
-        "SITE_NAME": getattr(settings, "SITE_NAME", "乒乓球社工作统计"),
+        "SITE_NAME": getattr(settings, "SITE_NAME", "CAUpingpangclub"),
         "DEBUG": settings.DEBUG,
     }
 

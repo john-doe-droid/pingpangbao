@@ -1,5 +1,5 @@
 /* ==========================================================================
-   乒乓球社工作统计 —— 站点样式
+   CAUpingpangclub —— 站点样式
    --------------------------------------------------------------------------
    设计方向：Google Search 的克制 + Workspace 的信息组织 + Material 的交互规范。
    要点：
@@ -1051,6 +1051,38 @@ input[type="file"].form-control::file-selector-button:hover {
   line-height: 1.5;
 }
 
+.pp-auth-shell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.pp-auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--pp-space-5);
+}
+.pp-auth-brand .pp-auth-head__mark { margin-bottom: var(--pp-space-3); }
+.pp-auth-brand__name {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.pp-auth-panel { width: 100%; }
+.pp-auth-panel .pp-surface__body { padding: 28px; }
+.pp-auth-heading {
+  margin: 0 0 var(--pp-space-4);
+  font-size: 20px;
+  font-weight: 600;
+}
+.pp-auth-help {
+  margin: var(--pp-space-4) 0 0;
+  text-align: center;
+  font-size: var(--pp-fs-meta);
+  color: var(--pp-text-secondary);
+}
+
 /* --------------------------------------------------------------------------
    17. 辅助
    -------------------------------------------------------------------------- */
@@ -1638,6 +1670,8 @@ select[multiple].form-select option:checked {
   align-items: center;
   justify-content: center;
   width: 100%;
+  min-height: 100dvh;
+  padding: var(--pp-space-5) 0;
 }
 .pp-main--auth > .container {
   width: 100%;
@@ -1645,11 +1679,8 @@ select[multiple].form-select option:checked {
 /* 登录/改密页要保持窄栏（约 400px），不能被上面的 width:100% 撑满。
    用 :where() 降低特异性以外，这里直接给出明确的 max-width 更直白。 */
 .pp-main--auth > .container.pp-container--auth {
-  max-width: 400px;
+  max-width: 430px;
 }
-
-/* 内容区最小高度：单行列表页也不会在页脚前留下大片死白 */
-.pp-container { min-height: 60vh; }
 
 /* 表格前的说明与表格之间保持一致的节奏 */
 .pp-surface__header + .pp-surface__body--flush { border-top: 0; }

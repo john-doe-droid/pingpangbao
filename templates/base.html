@@ -23,6 +23,7 @@
       /manage/             → 管理
       /reports/            → 管理
   {% endcomment %}
+  {% block site_header %}
   {% with p=request.path %}
   <header class="pp-header">
     <div class="pp-header__inner">
@@ -129,6 +130,7 @@
     </div>
   </header>
   {% endwith %}
+  {% endblock %}
 
   {# ===================== 消息提示 ===================== #}
   {% if messages %}
@@ -155,12 +157,13 @@
   </main>
 
   {# ===================== 页脚 ===================== #}
+  {% block site_footer %}
   <footer class="pp-footer">
     <div class="pp-footer__inner">
       <span>{{ SITE_NAME }}</span>
-      <span>内部工作统计系统</span>
     </div>
   </footer>
+  {% endblock %}
 
   <script src="{% static 'core/js/bootstrap.bundle.min.js' %}"></script>
   <script>
