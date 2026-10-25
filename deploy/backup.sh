@@ -4,6 +4,7 @@ set -eu
 app_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 backup_dir=${PINGPONG_BACKUP_DIR:-/srv/backup}
 retention_days=${BACKUP_RETENTION_DAYS:-30}
+media_retention_days=${BACKUP_MEDIA_RETENTION_DAYS:-28}
 stamp=$(date +%Y%m%d_%H%M%S)
 db_target="$backup_dir/db_$stamp.dump"
 media_target="$backup_dir/media_$stamp.tar.gz"
@@ -45,14 +46,31 @@ if [ ! -s "$db_temp" ]; then
     exit 1
 fi
 
-tar -czf "$media_temp" -C "$data_dir" private_media
 mv "$db_temp" "$db_target"
-mv "$media_temp" "$media_target"
 
-find "$backup_dir" -type f \
-    \( -name 'db_*.dump' -o -name 'media_*.tar.gz' \) \
+# Database dumps are small and run daily. Attachments grow over time, so keep
+# full media snapshots weekly instead of duplicating them 30 times.
+media_due=0
+if [ "${BACKUP_MEDIA_ALWAYS:-0}" = "1" ] || [ "$(date +%u)" = "7" ]; then
+    media_due=1
+fi
+if ! ls "$backup_dir"/media_*.tar.gz >/dev/null 2>&1; then
+    media_due=1
+fi
+if [ "$media_due" = "1" ]; then
+    tar -czf "$media_temp" -C "$data_dir" private_media
+    mv "$media_temp" "$media_target"
+fi
+
+find "$backup_dir" -type f -name 'db_*.dump' \
     -mtime "+$retention_days" -delete
+find "$backup_dir" -type f -name 'media_*.tar.gz' \
+    -mtime "+$media_retention_days" -delete
 
 echo "备份完成："
 echo "  $db_target"
-echo "  $media_target"
+if [ "$media_due" = "1" ]; then
+    echo "  $media_target"
+else
+    echo "  附件备份本周已完成，本次仅备份数据库"
+fi

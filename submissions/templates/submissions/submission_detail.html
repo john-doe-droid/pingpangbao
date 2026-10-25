@@ -103,7 +103,7 @@
               {% endif %}
             </span>
             <span class="pp-meta">
-              {{ version.submitted_by.get_short_name }} · {{ version.submitted_at|date:"Y-m-d H:i" }}
+              {{ version.submitted_by.get_full_name }} · {{ version.submitted_at|date:"Y-m-d H:i" }}
               {% if version.is_overdue %}
                 <span class="pp-status pp-status--danger" style="margin-left: var(--pp-space-1);">
                   <span class="pp-status__mark" aria-hidden="true"></span>逾期提交</span>
@@ -192,7 +192,7 @@
                 <span class="pp-meta" style="margin-left: var(--pp-space-2);">第 {{ log.version.version_no }} 版</span>
               </span>
               <span class="pp-meta">
-                {{ log.reviewer.get_short_name }} · {{ log.acted_at|date:"Y-m-d H:i" }}
+                {{ log.reviewer.get_full_name }} · {{ log.acted_at|date:"Y-m-d H:i" }}
               </span>
             </div>
             {% if log.reopen_reason %}

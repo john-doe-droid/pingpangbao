@@ -162,6 +162,20 @@ class TestFiltering:
         f2 = ReportFilters(date_from=today + timedelta(days=1))
         assert statistics.summarize(report_admin, f2)["total_records"] == 0
 
+    def test_date_filter_uses_current_version_submission_time(
+            self, rich_dataset, report_admin):
+        """重提后的记录按当前版本日期统计，而不是首次创建日期。"""
+        from submissions.models import Submission
+
+        submission = rich_dataset["m1_poster"]
+        Submission.objects.filter(pk=submission.pk).update(
+            created_at=timezone.now() - timedelta(days=20),
+        )
+
+        today = timezone.localdate()
+        filters = ReportFilters(date_from=today, date_to=today)
+        assert statistics.summarize(report_admin, filters)["total_records"] == 3
+
     def test_combined_filters(self, rich_dataset, report_admin):
         """多个条件应同时生效（AND 语义）。"""
         f = ReportFilters(

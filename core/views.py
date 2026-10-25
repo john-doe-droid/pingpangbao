@@ -201,7 +201,7 @@ def home(request):
 @admin_required
 def visit_dashboard(request):
     """Readable, privacy-minimized visitor analytics for club administrators."""
-    from datetime import timedelta
+    from datetime import datetime, time, timedelta
 
     from django.db.models import Count
     from django.db.models.functions import TruncDate
@@ -214,7 +214,11 @@ def visit_dashboard(request):
         period = "7"
     days = int(period)
     now = timezone.now()
-    start = now - timedelta(days=days)
+    first_day = timezone.localdate(now) - timedelta(days=days - 1)
+    start = timezone.make_aware(
+        datetime.combine(first_day, time.min),
+        timezone.get_current_timezone(),
+    )
     events = VisitorEvent.objects.filter(created_at__gte=start)
     page_events = events.filter(event_type=VisitorEvent.EventType.PAGE)
 

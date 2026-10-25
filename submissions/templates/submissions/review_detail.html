@@ -244,7 +244,7 @@
                 {% endif %}
                 <span class="pp-meta" style="margin-left: var(--pp-space-2);">第 {{ log.version.version_no }} 版</span>
               </span>
-              <span class="pp-meta">{{ log.reviewer.get_short_name }} · {{ log.acted_at|date:"Y-m-d H:i" }}</span>
+              <span class="pp-meta">{{ log.reviewer.get_full_name }} · {{ log.acted_at|date:"Y-m-d H:i" }}</span>
             </div>
             {% if log.reopen_reason %}
               <div class="pp-log__body">

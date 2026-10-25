@@ -397,14 +397,18 @@ def task_assign(request, pk):
     with transaction.atomic():
         for member in members:
             try:
-                TaskAssignment.objects.create(
-                    task=task, member=member, assigned_by=request.user,
-                )
-                created += 1
-                log_action(
-                    request, "assignment.create", task,
-                    detail="分配给：%s" % member.get_full_name(),
-                )
+                # A nested atomic block creates a savepoint. A uniqueness
+                # conflict then rolls back only this row instead of poisoning
+                # the transaction for all other selected members.
+                with transaction.atomic():
+                    TaskAssignment.objects.create(
+                        task=task, member=member, assigned_by=request.user,
+                    )
+                    created += 1
+                    log_action(
+                        request, "assignment.create", task,
+                        detail="分配给：%s" % member.get_full_name(),
+                    )
             except IntegrityError:
                 # 数据库部分唯一索引兜底：并发或绕过表单时不会产生重复分配
                 duplicated += 1

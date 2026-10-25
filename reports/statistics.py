@@ -215,7 +215,7 @@ def details(user, filters) -> list[dict]:
                 latest_review.get_action_display() if latest_review else ""),
             "latest_review_comment": (latest_review.comment or "") if latest_review else "",
             "latest_reviewer": (
-                latest_review.reviewer.get_short_name()
+                latest_review.reviewer.get_full_name()
                 if latest_review and latest_review.reviewer else ""),
             "latest_review_at": latest_review.acted_at if latest_review else None,
         })

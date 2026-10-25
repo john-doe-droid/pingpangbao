@@ -94,7 +94,7 @@ class ReportFilters:
             label = dict(STATUS_CHOICES_FOR_FILTER).get(self.status, self.status)
             parts.append("状态=%s" % label)
         if self.date_from or self.date_to:
-            parts.append("提交时间 %s ~ %s"
+            parts.append("当前版本提交日期 %s ~ %s"
                          % (self.date_from.isoformat() if self.date_from else "不限",
                             self.date_to.isoformat() if self.date_to else "不限"))
         if self.include_overdue_only:
@@ -211,21 +211,23 @@ def build_filtered_queryset(user, filters: ReportFilters):
     if filters.status:
         qs = qs.filter(status=filters.status)
 
-    # 时间筛选落在**提交时间**上（记录创建时间），并覆盖到当天整天：
+    # 时间筛选落在**当前版本提交时间**上，并覆盖到当天整天。
+    # 这样一条旧记录被退回后重新提交时，会进入最近一次修改所在的日期，
+    # 也与页面明细中展示的“本版提交时间”保持一致。
     # 用户选"到 10-20"时，预期是包含 10-20 全天，而不是 00:00 整点。
     if filters.date_from:
         start = timezone.make_aware(
             datetime.combine(filters.date_from, time.min),
             timezone.get_current_timezone(),
         )
-        qs = qs.filter(created_at__gte=start)
+        qs = qs.filter(current_version__submitted_at__gte=start)
     if filters.date_to:
         end_date = filters.date_to + timedelta(days=1)
         end = timezone.make_aware(
             datetime.combine(end_date, time.min),
             timezone.get_current_timezone(),
         )
-        qs = qs.filter(created_at__lt=end)
+        qs = qs.filter(current_version__submitted_at__lt=end)
 
     if filters.include_overdue_only:
         # 逾期标记存在当前版本上（提交时刻冻结的判定）

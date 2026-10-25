@@ -465,6 +465,7 @@ Docker 服务本身已 `systemctl enable`，因此服务器重启后容器会自
 
 仓库提供了备份脚本。它使用 `pg_dump` 做逻辑备份、打包附件，并在成功后才生成
 最终文件；任何一步失败都会保留错误退出码，不会用空文件假装备份成功。
+数据库默认每天备份并保留 30 天；附件体积较大，默认每周日完整备份并保留 28 天。
 
 ```bash
 sudo install -d -m 750 -o pingpong -g pingpong /srv/backup

@@ -393,7 +393,7 @@ def assert_material_requirements(task, pending_uploads: list[PendingUpload],
 
     # 反向检查：提交了模板不允许的材料
     disallowed = []
-    for key in ("file", "link"):
+    for key in ("text", "image", "file", "link"):
         if key in present and not snapshot.get("allow_%s" % key):
             disallowed.append(MATERIAL_LABELS.get(key, key))
     if disallowed:

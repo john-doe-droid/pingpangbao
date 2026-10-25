@@ -67,14 +67,14 @@
           </div>
 
           <div class="pp-filter-grid__item">
-            <label for="date_from" class="form-label">起始日期</label>
+            <label for="date_from" class="form-label">本版提交日期（起）</label>
             <input type="date" name="date_from" id="date_from"
                    class="form-control form-control-sm"
                    value="{{ filters.date_from|date:'Y-m-d' }}">
           </div>
 
           <div class="pp-filter-grid__item">
-            <label for="date_to" class="form-label">结束日期</label>
+            <label for="date_to" class="form-label">本版提交日期（止）</label>
             <input type="date" name="date_to" id="date_to"
                    class="form-control form-control-sm"
                    value="{{ filters.date_to|date:'Y-m-d' }}">
