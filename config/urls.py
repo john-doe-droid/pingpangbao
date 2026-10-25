@@ -19,6 +19,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
     path("manage/members/", include("accounts.manage_urls")),
+    path("manage/visits/", include("core.manage_urls")),
     path("competitions/", include("competitions.urls")),
     # 干事端：/my/tasks/...（查询层面只返回本人任务，无管理入口）
     path("my/tasks/", include("tasks.urls")),

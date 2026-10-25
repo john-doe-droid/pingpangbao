@@ -14,7 +14,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 
-from core.permissions import user_is_admin
+from core.permissions import admin_required, user_is_admin
 
 logger = logging.getLogger(__name__)
 
@@ -196,3 +196,105 @@ def home(request):
         "unassigned_tasks": unassigned_tasks,
     }
     return render(request, "core/home.html", {"dashboard": dashboard})
+
+
+@admin_required
+def visit_dashboard(request):
+    """Readable, privacy-minimized visitor analytics for club administrators."""
+    from datetime import timedelta
+
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate
+    from django.utils import timezone
+
+    from .models import VisitorEvent
+
+    period = request.GET.get("period", "7")
+    if period not in {"1", "7", "30"}:
+        period = "7"
+    days = int(period)
+    now = timezone.now()
+    start = now - timedelta(days=days)
+    events = VisitorEvent.objects.filter(created_at__gte=start)
+    page_events = events.filter(event_type=VisitorEvent.EventType.PAGE)
+
+    unique_visitors = (
+        page_events.exclude(visitor_hash="")
+        .values("visitor_hash")
+        .distinct()
+        .count()
+    )
+    online_since = now - timedelta(minutes=15)
+    online_visitors = (
+        VisitorEvent.objects.filter(
+            created_at__gte=online_since,
+            event_type=VisitorEvent.EventType.PAGE,
+        )
+        .exclude(visitor_hash="")
+        .values("visitor_hash")
+        .distinct()
+        .count()
+    )
+
+    daily_rows = list(
+        page_events
+        .annotate(day=TruncDate(
+            "created_at", tzinfo=timezone.get_current_timezone(),
+        ))
+        .values("day")
+        .annotate(views=Count("id"))
+        .order_by("day")
+    )
+    daily_map = {row["day"]: row["views"] for row in daily_rows}
+    daily = []
+    for offset in range(days - 1, -1, -1):
+        day = timezone.localdate(now) - timedelta(days=offset)
+        daily.append({"day": day, "views": daily_map.get(day, 0)})
+    peak = max((row["views"] for row in daily), default=0)
+    for row in daily:
+        row["height"] = max(4, round(row["views"] * 100 / peak)) if peak else 4
+
+    recent = list(
+        events.select_related("user").order_by("-created_at", "-id")[:80]
+    )
+    for event in recent:
+        if event.user_id:
+            event.visitor_label = event.user.get_short_name()
+            event.visitor_account = event.user.account
+        elif event.account_attempt:
+            event.visitor_label = event.account_attempt
+            event.visitor_account = "登录失败"
+        else:
+            event.visitor_label = "访客"
+            event.visitor_account = ""
+
+    return render(request, "core/visits.html", {
+        "page_title": "访问统计",
+        "period": period,
+        "days": days,
+        "total_views": page_events.count(),
+        "unique_visitors": unique_visitors,
+        "online_visitors": online_visitors,
+        "logged_in_visitors": (
+            page_events.filter(user__isnull=False)
+            .values("user_id").distinct().count()
+        ),
+        "failed_logins": events.filter(
+            event_type=VisitorEvent.EventType.LOGIN_FAILED,
+        ).count(),
+        "daily": daily,
+        "top_pages": (
+            page_events.values("path")
+            .annotate(views=Count("id"))
+            .order_by("-views", "path")[:8]
+        ),
+        "top_users": (
+            page_events.filter(user__isnull=False)
+            .values(
+                "user__account", "user__display_name", "user__real_name",
+            )
+            .annotate(views=Count("id"))
+            .order_by("-views", "user__account")[:8]
+        ),
+        "recent": recent,
+    })

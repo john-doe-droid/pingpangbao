@@ -1589,6 +1589,52 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   line-height: 1.4;
 }
 
+.pp-visit-stats {
+  margin-bottom: var(--pp-space-4);
+}
+.pp-visit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--pp-space-4);
+}
+.pp-visit-chart {
+  display: flex;
+  height: 220px;
+  align-items: flex-end;
+  gap: 6px;
+  overflow-x: auto;
+  padding-top: var(--pp-space-5);
+}
+.pp-visit-chart__item {
+  display: flex;
+  min-width: 24px;
+  height: 100%;
+  flex: 1 0 24px;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+.pp-visit-chart__bar {
+  width: min(24px, 70%);
+  min-height: 4px;
+  border-radius: 4px 4px 0 0;
+  background: var(--pp-primary);
+  opacity: .82;
+}
+.pp-visit-chart__value,
+.pp-visit-chart__label {
+  font-size: var(--pp-fs-micro);
+  color: var(--pp-text-secondary);
+  white-space: nowrap;
+}
+.pp-visit-chart__value { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 767.98px) {
+  .pp-visit-grid { grid-template-columns: 1fr; }
+  .pp-visit-chart { height: 180px; }
+}
+
 /* 表格内的复选框（行选择等场景）保持正常尺寸 */
 .table .form-check-input { margin: 0; }
 

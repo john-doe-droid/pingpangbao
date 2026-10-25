@@ -501,6 +501,15 @@ sudo chmod 644 /etc/cron.d/pingpong-backup
 `/srv/backup` 必须位于另一块磁盘或定期同步到其他机器/网盘，否则服务器磁盘损坏时
 数据库、附件和备份会一起丢失。
 
+访问统计默认保留 30 天，可追加每日清理任务：
+
+```bash
+sudo tee /etc/cron.d/pingpong-visitor-cleanup > /dev/null <<'EOF'
+40 3 * * * pingpong cd /srv/pingpong/app && docker compose exec -T app python manage.py cleanup_visitor_events --days 30 >/dev/null 2>&1
+EOF
+sudo chmod 644 /etc/cron.d/pingpong-visitor-cleanup
+```
+
 ### 9.3 恢复
 
 ```bash

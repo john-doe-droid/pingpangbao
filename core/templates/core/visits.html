@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}访问统计 · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container pp-container">
+  <div class="pp-page-header">
+    <div class="pp-page-header__main">
+      <h1 class="pp-page-title">访问统计</h1>
+    </div>
+    <div class="pp-page-header__actions">
+      <div class="pp-segment" role="group" aria-label="统计时间范围">
+        <a class="pp-segment__item {% if period == '1' %}is-active{% endif %}"
+           href="?period=1">24 小时</a>
+        <a class="pp-segment__item {% if period == '7' %}is-active{% endif %}"
+           href="?period=7">7 天</a>
+        <a class="pp-segment__item {% if period == '30' %}is-active{% endif %}"
+           href="?period=30">30 天</a>
+      </div>
+    </div>
+  </div>
+
+  {% include "includes/manage_tabs.html" %}
+
+  <div class="pp-stats pp-visit-stats">
+    <div class="pp-stat">
+      <span class="pp-stat__num">{{ total_views }}</span>
+      <span class="pp-stat__label">页面访问</span>
+    </div>
+    <div class="pp-stat">
+      <span class="pp-stat__num">{{ unique_visitors }}</span>
+      <span class="pp-stat__label">独立来源</span>
+    </div>
+    <div class="pp-stat">
+      <span class="pp-stat__num">{{ online_visitors }}</span>
+      <span class="pp-stat__label">15 分钟在线</span>
+    </div>
+    <div class="pp-stat">
+      <span class="pp-stat__num">{{ logged_in_visitors }}</span>
+      <span class="pp-stat__label">登录账号</span>
+    </div>
+    <div class="pp-stat {% if failed_logins %}pp-stat--alert{% endif %}">
+      <span class="pp-stat__num">{{ failed_logins }}</span>
+      <span class="pp-stat__label">登录失败</span>
+    </div>
+  </div>
+
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">访问趋势</h2>
+      <span class="pp-meta">近期页面访问量</span>
+    </div>
+    <div class="pp-surface__body">
+      <div class="pp-visit-chart" aria-label="按天访问量">
+        {% for row in daily %}
+          <div class="pp-visit-chart__item" title="{{ row.day|date:'Y-m-d' }}：{{ row.views }} 次">
+            <span class="pp-visit-chart__value">{{ row.views }}</span>
+            <span class="pp-visit-chart__bar" style="height: {{ row.height }}%;"></span>
+            <span class="pp-visit-chart__label">{{ row.day|date:"m-d" }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="pp-visit-grid">
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">热门页面</h2>
+      </div>
+      {% if top_pages %}
+        <ul class="pp-list">
+          {% for row in top_pages %}
+            <li class="pp-list__item pp-list__item--split">
+              <span class="pp-list__main">{{ row.path }}</span>
+              <span class="pp-meta">{{ row.views }} 次</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="pp-empty"><p class="pp-empty__title">暂无访问</p></div>
+      {% endif %}
+    </div>
+
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">活跃账号</h2>
+      </div>
+      {% if top_users %}
+        <ul class="pp-list">
+          {% for row in top_users %}
+            <li class="pp-list__item pp-list__item--split">
+              <span class="pp-list__main">
+                {{ row.user__display_name|default:row.user__real_name }}
+                <span class="pp-meta">（{{ row.user__account }}）</span>
+              </span>
+              <span class="pp-meta">{{ row.views }} 次</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="pp-empty"><p class="pp-empty__title">暂无登录用户访问</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="pp-surface">
+    <div class="pp-surface__header">
+      <h2 class="pp-section-title">最近访问</h2>
+      <span class="pp-meta">最多显示 80 条</span>
+    </div>
+    {% if recent %}
+      <div class="pp-surface__body pp-surface__body--flush">
+        <div class="table-responsive">
+          <table class="table pp-table-stack align-middle">
+            <thead>
+              <tr>
+                <th scope="col">时间</th>
+                <th scope="col">访客</th>
+                <th scope="col">页面或操作</th>
+                <th scope="col">客户端</th>
+                <th scope="col">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for event in recent %}
+                <tr>
+                  <td data-label="时间">{{ event.created_at|date:"m-d H:i:s" }}</td>
+                  <td data-label="访客">
+                    <span class="pp-cell-primary">{{ event.visitor_label }}</span>
+                    {% if event.visitor_account %}
+                      <div class="pp-cell-sub">{{ event.visitor_account }}</div>
+                    {% endif %}
+                  </td>
+                  <td data-label="页面或操作">
+                    {% if event.event_type == 'page' %}
+                      {{ event.path }}
+                    {% else %}
+                      <span class="pp-status {% if event.event_type == 'login_failed' %}pp-status--danger{% else %}pp-status--neutral{% endif %}">
+                        {{ event.get_event_type_display }}
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td data-label="客户端">{{ event.client|default:"未知" }}</td>
+                  <td data-label="IP">{{ event.ip_masked|default:"—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% else %}
+      <div class="pp-empty"><p class="pp-empty__title">暂无访问记录</p></div>
+    {% endif %}
+    <div class="pp-surface__footer pp-meta">
+      匿名访客只记录脱敏 IP，不保存表单内容；记录保留 30 天。
+    </div>
+  </div>
+</div>
+{% endblock %}

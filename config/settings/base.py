@@ -95,6 +95,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
+    "core.middleware.VisitorTrackingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -200,6 +201,7 @@ LOGIN_RATE_LIMIT_WINDOW_SECONDS = int(env("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "90
 LOGIN_RATE_LIMIT_LOCK_SECONDS = int(env("LOGIN_RATE_LIMIT_LOCK_SECONDS", "300"))
 # 仅当应用确实位于受信任反向代理之后时启用；直接暴露 8000 时必须关闭。
 TRUST_PROXY_HEADERS = env_bool("TRUST_PROXY_HEADERS", False)
+VISITOR_ANALYTICS_ENABLED = env_bool("VISITOR_ANALYTICS_ENABLED", True)
 
 # ---------------------------------------------------------------------------
 # P3：上传与配额上限（集中配置，视图里不再写死数字）

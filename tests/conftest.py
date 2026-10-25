@@ -16,6 +16,12 @@ TEST_PASSWORD = "TestPassw0rd!2026"
 TEST_NEW_PASSWORD = "NewPassw0rd!2026"
 
 
+@pytest.fixture(autouse=True)
+def disable_visitor_analytics(settings):
+    """Avoid unrelated tests writing analytics rows unless explicitly enabled."""
+    settings.VISITOR_ANALYTICS_ENABLED = False
+
+
 @pytest.fixture
 def plain_password():
     return TEST_PASSWORD

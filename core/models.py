@@ -54,3 +54,50 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return "%s %s %s" % (self.created_at, self.action, self.target_repr)
+
+
+class VisitorEvent(models.Model):
+    """Privacy-minimized page view and authentication activity."""
+
+    class EventType(models.TextChoices):
+        PAGE = "page", "访问页面"
+        LOGIN = "login", "登录"
+        LOGOUT = "logout", "退出"
+        LOGIN_FAILED = "login_failed", "登录失败"
+
+    event_type = models.CharField(
+        "类型", max_length=20, choices=EventType.choices,
+        default=EventType.PAGE, db_index=True,
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="用户",
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="visitor_events",
+    )
+    user_label = models.CharField(
+        "用户快照", max_length=80, blank=True,
+        help_text="账号删除后仍保留可读名称",
+    )
+    account_attempt = models.CharField(
+        "尝试账号", max_length=32, blank=True,
+    )
+    path = models.CharField("访问路径", max_length=255, blank=True)
+    ip_masked = models.CharField("脱敏 IP", max_length=64, blank=True)
+    visitor_hash = models.CharField(
+        "访客摘要", max_length=64, blank=True, db_index=True,
+        help_text="用于统计去重，不保存完整 IP",
+    )
+    client = models.CharField("客户端", max_length=24, blank=True)
+    created_at = models.DateTimeField("时间", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "访问记录"
+        verbose_name_plural = "访问记录"
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["event_type", "created_at"]),
+        ]
+
+    def __str__(self):
+        return "%s %s" % (self.created_at, self.path or self.get_event_type_display())
