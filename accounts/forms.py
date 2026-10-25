@@ -103,6 +103,44 @@ class FirstTimePasswordChangeForm(SetPasswordForm):
         return new_password
 
 
+class ProfileForm(forms.Form):
+    """本人可维护的展示资料。登录账号与正式姓名不在此处修改。"""
+
+    display_name = forms.CharField(
+        label="显示名称",
+        required=False,
+        max_length=50,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "例如：张晨",
+            "autocomplete": "nickname",
+        }),
+        help_text="留空则显示姓名。该名称不会改变登录账号。",
+    )
+    current_password = forms.CharField(
+        label="当前密码",
+        strip=False,
+        max_length=128,
+        widget=forms.PasswordInput(attrs={
+            "class": "form-control",
+            "autocomplete": "current-password",
+        }),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_display_name(self):
+        return (self.cleaned_data.get("display_name") or "").strip()
+
+    def clean_current_password(self):
+        password = self.cleaned_data.get("current_password")
+        if not self.user or not self.user.check_password(password):
+            raise forms.ValidationError("当前密码不正确。")
+        return password
+
+
 class ManagedMemberCreateForm(forms.ModelForm):
     """社团管理员创建普通成员账号。"""
 

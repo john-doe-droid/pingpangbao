@@ -782,7 +782,9 @@ input[type="file"].form-control::file-selector-button:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-decoration: none;
 }
+.pp-user__name:hover { color: var(--pp-text); }
 .pp-icon-btn {
   display: inline-flex;
   align-items: center;

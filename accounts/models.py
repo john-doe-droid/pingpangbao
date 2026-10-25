@@ -90,6 +90,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text="用于登录的账号，可使用已有编号或社团自定义名称",
     )
     real_name = models.CharField("姓名", max_length=50)
+    display_name = models.CharField(
+        "显示名称", max_length=50, blank=True,
+        help_text="仅用于页面展示，不影响登录账号和权限",
+    )
     phone = models.CharField("手机号", max_length=20, blank=True)
     email = models.EmailField("邮箱", blank=True)
 
@@ -148,7 +152,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         return bool(self.role_codes() & set(codes))
 
     def get_short_name(self):
-        return self.real_name or self.account
+        return self.display_name.strip() or self.real_name or self.account
 
     def get_full_name(self):
         return "%s（%s）" % (self.real_name, self.account)

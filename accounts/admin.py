@@ -33,17 +33,17 @@ class UserAdmin(BaseUserAdmin):
     """
 
     list_display = (
-        "account", "real_name", "role_list",
+        "account", "real_name", "display_name", "role_list",
         "is_active", "must_change_password", "last_login",
     )
     list_filter = ("is_active", "must_change_password", "is_staff", "roles")
-    search_fields = ("account", "real_name", "phone")
+    search_fields = ("account", "real_name", "display_name", "phone")
     ordering = ("account",)
     filter_horizontal = ("roles", "groups", "user_permissions")
 
     fieldsets = (
         (None, {"fields": ("account", "password")}),
-        (_("个人信息"), {"fields": ("real_name", "phone", "email")}),
+        (_("个人信息"), {"fields": ("real_name", "display_name", "phone", "email")}),
         (_("角色与权限"), {
             "fields": ("roles", "is_active", "is_staff", "is_superuser", "groups", "user_permissions"),
         }),
@@ -54,7 +54,7 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("account", "real_name", "phone", "roles",
+            "fields": ("account", "real_name", "display_name", "phone", "roles",
                        "password1", "password2", "must_change_password"),
         }),
     )

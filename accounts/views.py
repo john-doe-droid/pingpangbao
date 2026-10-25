@@ -19,6 +19,7 @@ from .forms import (
     FirstTimePasswordChangeForm,
     ManagedMemberCreateForm,
     ManagedMemberPasswordForm,
+    ProfileForm,
     StudentLoginForm,
 )
 from .models import User
@@ -52,6 +53,34 @@ class StudentLoginView(LoginView):
 
 class StudentLogoutView(LogoutView):
     next_page = reverse_lazy("core:home")
+
+
+@login_required
+def profile(request):
+    """Allow users to change their visible name, not their login identity."""
+    if request.method == "POST":
+        form = ProfileForm(request.POST, user=request.user)
+        if form.is_valid():
+            old_name = request.user.get_short_name()
+            request.user.display_name = form.cleaned_data["display_name"]
+            request.user.save(update_fields=["display_name"])
+            new_name = request.user.get_short_name()
+            log_action(
+                request, "profile.display_name", request.user,
+                detail="%s -> %s" % (old_name, new_name),
+            )
+            messages.success(request, "显示名称已更新。")
+            return redirect("accounts:profile")
+    else:
+        form = ProfileForm(
+            user=request.user,
+            initial={"display_name": request.user.display_name},
+        )
+
+    return render(request, "accounts/profile.html", {
+        "form": form,
+        "page_title": "个人资料",
+    })
 
 
 @login_required

@@ -11,5 +11,6 @@ app_name = "accounts"
 urlpatterns = [
     path("login/", views.StudentLoginView.as_view(), name="login"),
     path("logout/", views.StudentLogoutView.as_view(), name="logout"),
+    path("profile/", views.profile, name="profile"),
     path("password/change/", views.password_change, name="password_change"),
 ]

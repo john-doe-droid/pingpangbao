@@ -89,7 +89,8 @@
 
           {# --- 移动端才显示的用户区（桌面端隐藏）--- #}
           <div class="pp-user-mobile">
-            <span class="pp-user-mobile__name">{{ user.get_short_name }}</span>
+            <a class="pp-nav__link" href="{% url 'accounts:profile' %}">{{ user.get_short_name }}</a>
+            <a class="pp-nav__link" href="{% url 'accounts:profile' %}">个人资料</a>
             <a class="pp-nav__link" href="{% url 'accounts:password_change' %}">修改密码</a>
             {% if user.is_superuser %}
               <a class="pp-nav__link" href="/admin/">管理后台</a>
@@ -110,7 +111,8 @@
       {% if user.is_authenticated %}
         {# --- 桌面端用户区 --- #}
         <div class="pp-user">
-          <span class="pp-user__name" title="{{ user.get_full_name }}">{{ user.get_short_name }}</span>
+          <a class="pp-user__name" href="{% url 'accounts:profile' %}"
+             title="编辑个人资料">{{ user.get_short_name }}</a>
           <a class="pp-icon-btn" href="{% url 'accounts:password_change' %}"
              title="修改密码" aria-label="修改密码">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
