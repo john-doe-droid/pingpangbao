@@ -169,69 +169,151 @@ class TaskTemplateForm(forms.ModelForm):
 
 
 # ---------------------------------------------------------------------------
-# 比赛任务（从模板创建）
+# 比赛任务（直接创建，可选模板快速填充）
 # ---------------------------------------------------------------------------
 
 class CompetitionTaskForm(forms.ModelForm):
-    """在比赛下创建任务。
+    """直接在比赛中创建任务，模板仅用于带出默认配置。"""
 
-    模板只能从「启用中」里选；创建时会冻结规则快照（见模型 build_from_template）。
-    """
+    MATERIAL_CHOICES = (
+        ("none", "不需要"),
+        ("optional", "选填"),
+        ("required", "必交"),
+    )
+    MATERIAL_ROWS = (
+        ("text", "文字说明", "text_requirement"),
+        ("image", "图片证明", "image_requirement"),
+        ("file", "文件附件", "file_requirement"),
+        ("link", "作品链接", "link_requirement"),
+    )
+
+    text_requirement = forms.ChoiceField(
+        label="文字说明", choices=MATERIAL_CHOICES, required=False,
+        widget=forms.RadioSelect(),
+    )
+    image_requirement = forms.ChoiceField(
+        label="图片证明", choices=MATERIAL_CHOICES, required=False,
+        widget=forms.RadioSelect(),
+    )
+    file_requirement = forms.ChoiceField(
+        label="文件附件", choices=MATERIAL_CHOICES, required=False,
+        widget=forms.RadioSelect(),
+    )
+    link_requirement = forms.ChoiceField(
+        label="作品链接", choices=MATERIAL_CHOICES, required=False,
+        widget=forms.RadioSelect(),
+    )
 
     class Meta:
         model = CompetitionTask
-        fields = ["template", "name", "description", "deadline"]
+        fields = [
+            "template", "name", "work_type", "description",
+            "deadline", "max_records_per_member",
+        ]
         widgets = {
             "template": forms.Select(attrs={"class": "form-select"}),
-            "name": forms.TextInput(attrs={"class": "form-control"}),
+            "name": forms.TextInput(attrs={
+                "class": "form-control", "placeholder": "例如：制作赛前海报",
+            }),
+            "work_type": forms.Select(attrs={"class": "form-select"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "deadline": forms.DateTimeInput(attrs={
                 "class": "form-control", "type": "datetime-local",
             }, format="%Y-%m-%dT%H:%M"),
+            "max_records_per_member": forms.NumberInput(attrs={
+                "class": "form-control", "min": 1, "step": 1,
+            }),
         }
 
     def __init__(self, *args, competition=None, **kwargs):
         self.competition = competition
         super().__init__(*args, **kwargs)
+
+        self.fields["template"].required = False
+        self.fields["template"].label = "从模板载入（可选）"
+        self.fields["template"].help_text = "选择后自动带出配置，提交前仍可修改。"
         self.fields["deadline"].input_formats = [
             "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M",
         ]
         self.fields["deadline"].required = False
-        # 只允许选启用中的模板
-        available = TaskTemplate.objects.filter(is_active=True).select_related("work_type")
+        self.fields["work_type"].queryset = WorkType.objects.filter(is_active=True)
+        self.fields["max_records_per_member"].initial = 1
+
+        available = TaskTemplate.objects.filter(
+            is_active=True, work_type__is_active=True,
+        ).select_related("work_type")
         if competition is not None:
-            # 该比赛下已经用过同一模板的不再重复提供
-            used = CompetitionTask.objects.filter(competition=competition).values_list(
-                "template_id", flat=True
-            )
+            used = CompetitionTask.objects.filter(
+                competition=competition, template__isnull=False,
+            ).values_list("template_id", flat=True)
             available = available.exclude(pk__in=list(used))
         self.fields["template"].queryset = available
-        self.fields["template"].empty_label = "— 请选择任务模板 —"
+        self.fields["template"].empty_label = "不使用模板，直接填写"
+
+        initial_modes = {
+            "text": "required",
+            "image": "optional",
+            "file": "none",
+            "link": "none",
+        }
+        for key, _label, field_name in self.MATERIAL_ROWS:
+            self.fields[field_name].initial = initial_modes[key]
+            self.fields[field_name].widget.attrs["class"] = "pp-choice-input"
+
+        self.material_choice_rows = [
+            (label, self[field_name])
+            for _key, label, field_name in self.MATERIAL_ROWS
+        ]
 
     def clean_template(self):
         template = self.cleaned_data.get("template")
         if template is None:
-            raise forms.ValidationError("请选择一个任务模板。")
+            return None
         if not template.is_active:
-            raise forms.ValidationError("该模板已停用，不能用于新任务。")
-        if self.competition is not None:
-            if CompetitionTask.objects.filter(
-                competition=self.competition, template=template
-            ).exists():
-                raise forms.ValidationError("本场比赛已经创建过该模板的任务。")
+            raise forms.ValidationError("该模板已停用。")
+        if self.competition is not None and CompetitionTask.objects.filter(
+            competition=self.competition, template=template,
+        ).exists():
+            raise forms.ValidationError("本场比赛已经使用过该模板。")
         return template
+
+    def clean_max_records_per_member(self):
+        count = self.cleaned_data.get("max_records_per_member")
+        if count is None or int(count) < 1:
+            raise forms.ValidationError("提交份数必须是正整数。")
+        return count
 
     def clean(self):
         cleaned = super().clean()
+        snapshot = {}
+        for key, _label, field_name in self.MATERIAL_ROWS:
+            mode = cleaned.get(field_name) or "none"
+            snapshot["allow_%s" % key] = mode in {"optional", "required"}
+            snapshot["require_%s" % key] = mode == "required"
+        snapshot["max_records_per_member"] = cleaned.get("max_records_per_member")
+        cleaned["rule_snapshot"] = snapshot
+
         deadline = cleaned.get("deadline")
-        competition = self.competition
-        if deadline and competition:
-            if deadline.date() < competition.event_date:
+        if deadline and self.competition:
+            if deadline.date() < self.competition.event_date:
                 self.add_error(
                     "deadline",
-                    "任务截止时间不能早于比赛日期，请检查是否填错。",
+                    "任务截止时间不能早于比赛日期。",
                 )
         return cleaned
+
+    def build_task(self, *, competition, created_by):
+        return CompetitionTask(
+            competition=competition,
+            template=self.cleaned_data.get("template"),
+            name=self.cleaned_data["name"],
+            work_type=self.cleaned_data["work_type"],
+            description=self.cleaned_data.get("description", ""),
+            deadline=self.cleaned_data.get("deadline"),
+            rule_snapshot=self.cleaned_data["rule_snapshot"],
+            max_records_per_member=self.cleaned_data["max_records_per_member"],
+            created_by=created_by,
+        )
 
 
 class TaskEditForm(forms.ModelForm):

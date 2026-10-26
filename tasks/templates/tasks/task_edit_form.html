@@ -37,7 +37,9 @@
       <dl class="pp-dl">
         <div class="pp-dl__row">
           <dt class="pp-dl__label">来源模板</dt>
-          <dd class="pp-dl__value">{{ task.template.name }}</dd>
+          <dd class="pp-dl__value">
+            {% if task.template %}{{ task.template.name }}{% else %}自定义任务{% endif %}
+          </dd>
         </div>
         <div class="pp-dl__row">
           <dt class="pp-dl__label">工作类型</dt>

@@ -244,7 +244,7 @@ def template_toggle(request, pk):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def task_create(request, competition_pk):
-    """在指定比赛下创建任务（从模板）。"""
+    """Create a task directly, with an optional template as a shortcut."""
     competition = get_object_or_404(Competition, pk=competition_pk)
 
     if not can_configure_tasks(request.user, competition):
@@ -256,25 +256,24 @@ def task_create(request, competition_pk):
             return redirect("competitions:detail", pk=competition.pk)
         raise PermissionDenied("无权为该比赛创建任务。")
 
+    if not WorkType.objects.filter(is_active=True).exists():
+        messages.error(request, "请先创建一个工作类型。")
+        return redirect("tasks_admin:worktype_create")
+
     if request.method == "POST":
         form = CompetitionTaskForm(request.POST, competition=competition)
         if form.is_valid():
-            template = form.cleaned_data["template"]
             with transaction.atomic():
-                # 用 build_from_template 保证规则快照与可用性字段一致
-                task = CompetitionTask.build_from_template(
+                task = form.build_task(
                     competition=competition,
-                    template=template,
-                    name=form.cleaned_data["name"],
-                    description=form.cleaned_data["description"],
-                    deadline=form.cleaned_data.get("deadline"),
                     created_by=request.user,
                 )
                 task.save()
+                template = form.cleaned_data.get("template")
                 log_action(
                     request, "task.create", task,
                     detail="来源模板：%s；材料要求：%s"
-                    % (template.name, task.snapshot_summary()),
+                    % (template.name if template else "直接创建", task.snapshot_summary()),
                 )
             messages.success(
                 request,
@@ -286,8 +285,34 @@ def task_create(request, competition_pk):
     else:
         form = CompetitionTaskForm(competition=competition)
 
+    template_payload = {}
+    for template in form.fields["template"].queryset:
+        template_payload[str(template.pk)] = {
+            "name": template.name,
+            "work_type": str(template.work_type_id),
+            "description": template.description,
+            "max_records": template.max_records_per_member,
+            "text": (
+                "required" if template.require_text
+                else "optional" if template.allow_text else "none"
+            ),
+            "image": (
+                "required" if template.require_image
+                else "optional" if template.allow_image else "none"
+            ),
+            "file": (
+                "required" if template.require_file
+                else "optional" if template.allow_file else "none"
+            ),
+            "link": (
+                "required" if template.require_link
+                else "optional" if template.allow_link else "none"
+            ),
+        }
+
     return render(request, "tasks/task_form.html", {
         "form": form, "competition": competition,
+        "template_payload": template_payload,
         "page_title": "为「%s」新建任务" % competition.name,
     })
 

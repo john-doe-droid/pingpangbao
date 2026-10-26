@@ -19,7 +19,8 @@
     <div class="pp-page-header__main">
       <h1 class="pp-page-title">{{ task.name }}</h1>
       <p class="pp-page-header__desc">
-        {{ task.work_type.name }} · 来源模板 {{ task.template.name }}
+        {{ task.work_type.name }}
+        {% if task.template %}· {{ task.template.name }}{% else %}· 自定义任务{% endif %}
       </p>
     </div>
     {% if can_assign %}

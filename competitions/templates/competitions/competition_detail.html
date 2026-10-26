@@ -140,7 +140,7 @@
       <span class="pp-meta">{{ tasks|length }} 项</span>
       {% if can_configure_tasks %}
         <a class="btn btn-sm btn-primary"
-           href="{% url 'tasks_admin:task_create' competition.pk %}">从模板添加任务</a>
+           href="{% url 'tasks_admin:task_create' competition.pk %}">添加任务</a>
       {% endif %}
     </div>
 
@@ -204,7 +204,7 @@
           </p>
           {% if can_configure_tasks %}
             <a class="btn btn-primary"
-               href="{% url 'tasks_admin:task_create' competition.pk %}">从模板添加任务</a>
+               href="{% url 'tasks_admin:task_create' competition.pk %}">添加任务</a>
           {% endif %}
         {% else %}
           {# 干事看不到别人的任务，因此"没有任务"是常态，要解释清楚为什么空 #}

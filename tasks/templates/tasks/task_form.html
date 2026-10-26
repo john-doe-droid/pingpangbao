@@ -4,7 +4,6 @@
 
 {% block content %}
 <div class="container pp-container pp-container--form">
-
   <nav aria-label="面包屑">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="{% url 'competitions:list' %}">比赛</a></li>
@@ -35,20 +34,108 @@
         <h2 class="pp-section-title">任务信息</h2>
       </div>
       <div class="pp-surface__body">
-        {% for field in form %}
-          <div class="mb-3{% if forloop.last %} mb-0{% endif %}">
-            <label for="{{ field.id_for_label }}" class="form-label">
-              {{ field.label }}{% if field.field.required %} <span class="pp-required">*</span>{% endif %}
-            </label>
-            {{ field }}
-            {% if field.help_text %}
-              <div class="form-text">{{ field.help_text }}</div>
-            {% endif %}
-            {% for error in field.errors %}
-              <div class="pp-field-error">{{ error }}</div>
-            {% endfor %}
-          </div>
-        {% endfor %}
+        <div class="mb-3">
+          <label for="{{ form.template.id_for_label }}" class="form-label">
+            {{ form.template.label }}
+          </label>
+          {{ form.template }}
+          <div class="form-text">{{ form.template.help_text }}</div>
+          {% for error in form.template.errors %}
+            <div class="pp-field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.name.id_for_label }}" class="form-label">
+            任务名称 <span class="pp-required">*</span>
+          </label>
+          {{ form.name }}
+          {% for error in form.name.errors %}
+            <div class="pp-field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.work_type.id_for_label }}" class="form-label">
+            工作类型 <span class="pp-required">*</span>
+          </label>
+          {{ form.work_type }}
+          {% for error in form.work_type.errors %}
+            <div class="pp-field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.description.id_for_label }}" class="form-label">
+            任务说明
+          </label>
+          {{ form.description }}
+          {% for error in form.description.errors %}
+            <div class="pp-field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.deadline.id_for_label }}" class="form-label">
+            截止时间
+          </label>
+          {{ form.deadline }}
+          <div class="form-text">留空则使用比赛默认截止时间。</div>
+          {% for error in form.deadline.errors %}
+            <div class="pp-field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="mb-0">
+          <label for="{{ form.max_records_per_member.id_for_label }}" class="form-label">
+            每人可提交份数 <span class="pp-required">*</span>
+          </label>
+          {{ form.max_records_per_member }}
+          {% for error in form.max_records_per_member.errors %}
+            <div class="pp-field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="pp-surface">
+      <div class="pp-surface__header">
+        <h2 class="pp-section-title">材料要求</h2>
+      </div>
+      <div class="pp-surface__body">
+        <div class="table-responsive">
+          <table class="table pp-table-stack align-middle">
+            <thead>
+              <tr>
+                <th scope="col">材料类型</th>
+                <th scope="col">提交要求</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for label, field in form.material_choice_rows %}
+                <tr>
+                  <td class="pp-cell-primary">{{ label }}</td>
+                  <td data-label="提交要求">
+                    <fieldset class="pp-choice-fieldset">
+                      <legend class="visually-hidden">{{ label }}的提交要求</legend>
+                      <div class="pp-inline-options">
+                        {% for choice in field %}
+                          <label class="pp-inline-option" for="{{ choice.id_for_label }}">
+                            {{ choice.tag }}
+                            <span>{{ choice.choice_label }}</span>
+                          </label>
+                        {% endfor %}
+                      </div>
+                    </fieldset>
+                    {% for error in field.errors %}
+                      <div class="pp-field-error">{{ error }}</div>
+                    {% endfor %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -58,6 +145,33 @@
          href="{% url 'competitions:detail' competition.pk %}">取消</a>
     </div>
   </form>
-
 </div>
+
+{{ template_payload|json_script:"task-template-data" }}
+<script>
+  (function () {
+    var payloadEl = document.getElementById("task-template-data");
+    var select = document.getElementById("id_template");
+    if (!payloadEl || !select) return;
+    var payload = JSON.parse(payloadEl.textContent);
+
+    select.addEventListener("change", function () {
+      var data = payload[select.value];
+      if (!data) return;
+
+      document.getElementById("id_name").value = data.name;
+      document.getElementById("id_work_type").value = data.work_type;
+      document.getElementById("id_description").value = data.description;
+      document.getElementById("id_max_records_per_member").value =
+        data.max_records;
+
+      ["text", "image", "file", "link"].forEach(function (key) {
+        var input = document.querySelector(
+          'input[name="' + key + '_requirement"][value="' + data[key] + '"]'
+        );
+        if (input) input.checked = true;
+      });
+    });
+  })();
+</script>
 {% endblock %}

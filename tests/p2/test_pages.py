@@ -280,18 +280,97 @@ class TestWorkTypeAndTemplatePages:
 
 @pytest.mark.django_db
 class TestTaskConfigPages:
+    def _task_payload(self, template, name, *, use_template=True):
+        return {
+            "template": template.pk if use_template else "",
+            "name": name,
+            "work_type": template.work_type_id,
+            "description": "",
+            "deadline": "",
+            "max_records_per_member": template.max_records_per_member,
+            "text_requirement": (
+                "required" if template.require_text
+                else "optional" if template.allow_text else "none"
+            ),
+            "image_requirement": (
+                "required" if template.require_image
+                else "optional" if template.allow_image else "none"
+            ),
+            "file_requirement": (
+                "required" if template.require_file
+                else "optional" if template.allow_file else "none"
+            ),
+            "link_requirement": (
+                "required" if template.require_link
+                else "optional" if template.allow_link else "none"
+            ),
+        }
 
     def test_create_task_from_template(self, logged_in_client, admin_user,
                                        active_competition, template):
         client = logged_in_client.as_(admin_user)
         resp = client.post(
             reverse("tasks_admin:task_create", args=[active_competition.pk]),
-            {"template": template.pk, "name": "赛后海报", "description": "", "deadline": ""},
+            self._task_payload(template, "赛后海报"),
         )
         assert resp.status_code == 302
         task = CompetitionTask.objects.get(competition=active_competition)
         assert task.name == "赛后海报"
         assert task.rule_snapshot, "必须保存规则快照"
+
+    def test_create_task_directly_without_template(
+            self, logged_in_client, admin_user, active_competition, template):
+        client = logged_in_client.as_(admin_user)
+        payload = self._task_payload(
+            template, "自定义任务", use_template=False,
+        )
+        payload.update({
+            "text_requirement": "optional",
+            "image_requirement": "none",
+            "file_requirement": "none",
+            "link_requirement": "required",
+        })
+        response = client.post(
+            reverse("tasks_admin:task_create", args=[active_competition.pk]),
+            payload,
+        )
+        assert response.status_code == 302
+        task = CompetitionTask.objects.get(
+            competition=active_competition, name="自定义任务",
+        )
+        assert task.template is None
+        assert task.rule_snapshot["allow_text"] is True
+        assert task.rule_snapshot["require_text"] is False
+        assert task.rule_snapshot["require_link"] is True
+
+    def test_create_task_when_no_templates_exist(
+            self, logged_in_client, admin_user, active_competition, worktype):
+        client = logged_in_client.as_(admin_user)
+        page = client.get(
+            reverse("tasks_admin:task_create", args=[active_competition.pk]),
+        )
+        assert page.status_code == 200
+        assert "不使用模板，直接填写" in page.content.decode("utf-8")
+
+        response = client.post(
+            reverse("tasks_admin:task_create", args=[active_competition.pk]),
+            {
+                "template": "",
+                "name": "无模板任务",
+                "work_type": worktype.pk,
+                "description": "",
+                "deadline": "",
+                "max_records_per_member": 1,
+                "text_requirement": "required",
+                "image_requirement": "none",
+                "file_requirement": "none",
+                "link_requirement": "none",
+            },
+        )
+        assert response.status_code == 302
+        task = CompetitionTask.objects.get(name="无模板任务")
+        assert task.template is None
+        assert task.rule_snapshot["require_text"] is True
 
     def test_task_create_blocked_on_draft_competition(self, logged_in_client,
                                                       admin_user, draft_competition,
@@ -341,7 +420,7 @@ class TestTaskConfigPages:
         client = logged_in_client.as_(admin_user)
         resp = client.post(
             reverse("tasks_admin:task_create", args=[active_competition.pk]),
-            {"template": template.pk, "name": "重复", "description": "", "deadline": ""},
+            self._task_payload(template, "重复"),
         )
         assert resp.status_code == 200
         assert CompetitionTask.objects.filter(competition=active_competition).count() == 1

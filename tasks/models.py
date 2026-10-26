@@ -249,8 +249,9 @@ class TaskTemplate(models.Model):
 class CompetitionTask(models.Model):
     """某场比赛下的一个具体任务。
 
-    由管理员从模板挑选后创建。创建时把模板规则**快照**进自身字段，
-    因此模板后续被修改不会悄悄改变已发布任务的规则。
+    管理员可以直接填写材料要求，也可以从模板快速带出配置。无论采用哪种
+    方式，创建时都会把规则**快照**进自身字段，因此模板后续被修改不会
+    悄悄改变已发布任务的规则。
     """
 
     competition = models.ForeignKey(
@@ -262,8 +263,10 @@ class CompetitionTask(models.Model):
     template = models.ForeignKey(
         TaskTemplate,
         verbose_name="来源模板",
-        on_delete=models.PROTECT,       # 模板被引用后不能删除
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
         related_name="competition_tasks",
+        help_text="可为空；空值表示直接自定义任务",
     )
 
     # --- 从模板复制来的展示信息（可微调，不影响快照规则）---
