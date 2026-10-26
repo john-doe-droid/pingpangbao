@@ -721,10 +721,12 @@ input[type="file"].form-control::file-selector-button:hover {
 }
 .pp-brand:hover { color: var(--pp-text); text-decoration: none; }
 .pp-brand__mark {
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   display: block;
+  border-radius: 7px;
+  object-fit: cover;
 }
 .pp-brand__text {
   overflow: hidden;
@@ -1064,7 +1066,15 @@ input[type="file"].form-control::file-selector-button:hover {
   align-items: center;
   margin-bottom: var(--pp-space-5);
 }
-.pp-auth-brand .pp-auth-head__mark { margin-bottom: var(--pp-space-3); }
+.pp-auth-flag {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  margin-bottom: var(--pp-space-4);
+  border-radius: 12px;
+  border: 1px solid rgba(176, 141, 67, .38);
+}
 .pp-auth-brand__name {
   margin: 0;
   font-size: 23px;
