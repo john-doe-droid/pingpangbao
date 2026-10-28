@@ -722,6 +722,82 @@ class TestArchived:
 
 
 @pytest.mark.django_db
+class TestUndoRejection:
+
+    def _reject(self, submitted, p3_reviewer):
+        with transaction.atomic():
+            services.reject_submission(
+                submission=services.lock_submission(submitted.pk),
+                reviewer=p3_reviewer,
+                comment="误点了退回",
+            )
+
+    def test_original_reviewer_can_undo_before_revision(
+            self, submitted, p3_reviewer):
+        self._reject(submitted, p3_reviewer)
+        with transaction.atomic():
+            services.undo_rejection(
+                submission=services.lock_submission(submitted.pk),
+                reviewer=p3_reviewer,
+            )
+
+        submitted.refresh_from_db()
+        assert submitted.status == SubmissionStatus.PENDING
+        actions = list(
+            submitted.review_logs.values_list("action", flat=True)
+        )
+        assert ReviewAction.REJECT in actions
+        assert ReviewAction.UNDO_REJECT in actions
+
+    def test_another_authorized_reviewer_cannot_undo(
+            self, submitted, p3_reviewer, p3_member2, p3_competition):
+        from competitions.models import ReviewerAssignment
+
+        ReviewerAssignment.objects.create(
+            competition=p3_competition,
+            reviewer=p3_member2,
+            granted_by=p3_reviewer,
+        )
+        self._reject(submitted, p3_reviewer)
+
+        with pytest.raises(services.SubmissionError, match="原退回审核人"):
+            with transaction.atomic():
+                services.undo_rejection(
+                    submission=services.lock_submission(submitted.pk),
+                    reviewer=p3_member2,
+                )
+
+    def test_cannot_undo_after_revision_is_resubmitted(
+            self, submitted, p3_member, p3_reviewer):
+        self._reject(submitted, p3_reviewer)
+        orchestration.submit_revision(
+            submission_id=submitted.pk,
+            user=p3_member,
+            text_content="已按要求修改",
+            post_data={},
+            files=files_with_images("undo-after-revision.jpg"),
+        )
+
+        with pytest.raises(services.SubmissionError, match="仍处于"):
+            with transaction.atomic():
+                services.undo_rejection(
+                    submission=services.lock_submission(submitted.pk),
+                    reviewer=p3_reviewer,
+                )
+
+    def test_undo_view_restores_pending(
+            self, client, submitted, p3_reviewer):
+        self._reject(submitted, p3_reviewer)
+        client.force_login(p3_reviewer)
+        response = client.post(
+            reverse("submissions:undo_rejection", args=[submitted.pk]),
+        )
+        assert response.status_code == 302
+        submitted.refresh_from_db()
+        assert submitted.status == SubmissionStatus.PENDING
+
+
+@pytest.mark.django_db
 def test_submission_identity_uses_display_name(client, submitted, p3_member):
     p3_member.display_name = "展示名小李"
     p3_member.save(update_fields=["display_name"])

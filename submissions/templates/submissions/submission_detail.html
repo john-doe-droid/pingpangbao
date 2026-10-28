@@ -47,6 +47,21 @@
     </div>
   {% endif %}
 
+  {% if can_undo_rejection %}
+    <div class="pp-surface" style="border-color: var(--pp-warning-border);">
+      <div class="pp-surface__body pp-inline-actions">
+        <form method="post"
+              action="{% url 'submissions:undo_rejection' submission.pk %}"
+              class="m-0"
+              onsubmit="return confirm('确定撤销本次退回吗？记录会恢复到待审核。');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-secondary">撤销退回</button>
+        </form>
+        <span class="pp-meta">本次退回是误操作，恢复后仍可继续审核。</span>
+      </div>
+    </div>
+  {% endif %}
+
   {% if can_review %}
     <div class="pp-inline-actions" style="margin-bottom: var(--pp-space-4);">
       <a class="btn btn-primary"
@@ -189,6 +204,9 @@
                 {% elif log.action == 'reject' %}
                   <span class="pp-status pp-status--danger">
                     <span class="pp-status__mark" aria-hidden="true"></span>退回修改</span>
+                {% elif log.action == 'undo_reject' %}
+                  <span class="pp-status pp-status--info">
+                    <span class="pp-status__mark" aria-hidden="true"></span>撤销退回</span>
                 {% else %}
                   <span class="pp-status pp-status--warning">
                     <span class="pp-status__mark" aria-hidden="true"></span>发起重新审核</span>

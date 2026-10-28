@@ -493,6 +493,45 @@ def reject_submission(*, submission: Submission, reviewer, comment: str) -> None
     )
 
 
+def undo_rejection(*, submission: Submission, reviewer) -> None:
+    """Restore a not-yet-revised submission to pending after a mistaken reject."""
+    from reviews.models import ReviewAction
+
+    if submission.status != SubmissionStatus.NEEDS_REVISION:
+        raise SubmissionError(
+            "只有仍处于「退回修改」状态的记录才能撤销退回。"
+        )
+
+    version = submission.current_version or submission.latest_version()
+    if version is None:
+        raise SubmissionError("该记录没有任何提交版本。")
+    rejection = (
+        submission.review_logs
+        .filter(action=ReviewAction.REJECT)
+        .order_by("-acted_at", "-id")
+        .first()
+    )
+    if (
+        rejection is None
+        or rejection.reviewer_id != reviewer.id
+        or rejection.version_id != version.pk
+    ):
+        raise SubmissionError("只能由原退回审核人撤销本次退回。")
+
+    from_status = submission.status
+    submission.status = SubmissionStatus.PENDING
+    submission.save(update_fields=["status", "updated_at"])
+    _write_review_log(
+        submission=submission,
+        version=version,
+        reviewer=reviewer,
+        action=ReviewAction.UNDO_REJECT,
+        from_status=from_status,
+        to_status=submission.status,
+        comment="撤销此前退回，恢复为待审核。",
+    )
+
+
 def reopen_submission(*, submission: Submission, reviewer,
                       reason: str, comment: str = "") -> None:
     """把已通过记录退回待审核，并完整记录本次操作。"""

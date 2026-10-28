@@ -74,6 +74,32 @@ def can_reopen_submission(user, submission) -> bool:
     return can_review_submission(user, submission)
 
 
+def can_undo_rejection(user, submission) -> bool:
+    """Only the reviewer who last rejected the current version may undo it."""
+    from reviews.models import ReviewAction
+    from submissions.models import SubmissionStatus
+
+    if submission.status != SubmissionStatus.NEEDS_REVISION:
+        return False
+    if not can_review_submission(user, submission):
+        return False
+
+    current_version = submission.current_version or submission.latest_version()
+    if current_version is None:
+        return False
+    rejection = (
+        submission.review_logs
+        .filter(action=ReviewAction.REJECT)
+        .order_by("-acted_at", "-id")
+        .first()
+    )
+    return bool(
+        rejection
+        and rejection.reviewer_id == user.id
+        and rejection.version_id == current_version.pk
+    )
+
+
 def visible_submissions_for(user):
     """某用户可见的工作记录集合。
 

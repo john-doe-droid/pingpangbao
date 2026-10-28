@@ -120,6 +120,17 @@
                   <td class="pp-num pp-cell-actions" data-label="操作">
                     <a class="btn btn-sm btn-outline-secondary"
                        href="{% url 'submissions:review_submission' sub.pk %}">查看</a>
+                    {% if sub.can_undo_rejection %}
+                      <form method="post"
+                            action="{% url 'submissions:undo_rejection' sub.pk %}"
+                            class="d-inline m-0"
+                            onsubmit="return confirm('确定撤销本次退回吗？记录会恢复到待审核。');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                          撤销退回
+                        </button>
+                      </form>
+                    {% endif %}
                   </td>
                 </tr>
               {% endfor %}

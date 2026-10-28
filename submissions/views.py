@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_POST, require_http_methods
 
 from core.permissions import (
     admin_required,
@@ -24,6 +24,7 @@ from .models import Attachment, Submission, SubmissionStatus
 from .permissions import (
     can_reopen_submission,
     can_review_submission,
+    can_undo_rejection,
     can_view_attachment,
 )
 
@@ -238,6 +239,7 @@ def submission_detail(request, pk):
         "can_revise": can_revise,
         "can_review": can_review_submission(request.user, submission),
         "can_reopen": can_reopen_submission(request.user, submission),
+        "can_undo_rejection": can_undo_rejection(request.user, submission),
         "latest": submission.latest_version(),
         "page_title": "工作记录详情",
     })
@@ -315,6 +317,8 @@ def review_queue(request):
 
     pending = [s for s in submissions if s.status == SubmissionStatus.PENDING]
     others = [s for s in submissions if s.status != SubmissionStatus.PENDING]
+    for item in others:
+        item.can_undo_rejection = can_undo_rejection(request.user, item)
 
     return render(request, "submissions/review_queue.html", {
         "pending": pending,
@@ -388,8 +392,35 @@ def review_submission(request, pk):
         "versions": versions,
         "latest": submission.latest_version(),
         "review_logs": submission.review_logs.select_related("reviewer").order_by("-acted_at"),
+        "can_undo_rejection": can_undo_rejection(request.user, submission),
         "page_title": "审核工作记录",
     })
+
+
+@login_required_view
+@require_POST
+def undo_rejection(request, pk):
+    """Undo a mistaken reject while the owner has not resubmitted."""
+    submission = get_object_or_404(
+        Submission.objects.select_related(
+            "assignment", "assignment__member", "assignment__task",
+            "assignment__task__competition", "current_version",
+        ),
+        pk=pk,
+    )
+    if not can_undo_rejection(request.user, submission):
+        raise PermissionDenied("只有原退回审核人可以撤销本次退回。")
+
+    try:
+        with transaction.atomic():
+            locked = services.lock_submission(submission.pk)
+            services.assert_review_permission(request.user, locked)
+            services.undo_rejection(submission=locked, reviewer=request.user)
+    except services.SubmissionError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "已撤销退回，这条记录恢复到「待审核」。")
+    return redirect("submissions:review_detail", pk=submission.pk)
 
 
 @login_required_view

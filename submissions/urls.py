@@ -25,5 +25,7 @@ urlpatterns = [
     path("review/", views.review_queue, name="review_queue"),
     path("review/<int:pk>/", views.review_submission, name="review_submission"),
     path("review/<int:pk>/detail/", views.review_detail, name="review_detail"),
+    path("review/<int:pk>/undo-rejection/", views.undo_rejection,
+         name="undo_rejection"),
     path("review/<int:pk>/reopen/", views.reopen_submission, name="reopen_submission"),
 ]

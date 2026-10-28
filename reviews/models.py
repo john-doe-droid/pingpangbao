@@ -7,7 +7,7 @@ P2 已经在 `core.AuditLog` 里做了通用操作日志（谁、何时、对什
 本模块**不重复造一套通用日志**，而是只建审核领域特有的记录：
 它必须回答 AuditLog 答不了的几个问题 ——
     * 这次审核针对的是**哪个提交版本**（AuditLog 只有字符串 target_id）
-    * 审核**动作**是 approve / reject / reopen
+    * 审核**动作**是 approve / reject / reopen / undo_reject
     * **意见**与**重新审核原因**
     * 该记录所属的**工作记录状态流转**（from → to）
 
@@ -32,6 +32,7 @@ class ReviewAction(models.TextChoices):
     APPROVE = "approve", "通过"
     REJECT = "reject", "退回修改"
     REOPEN = "reopen", "发起重新审核"
+    UNDO_REJECT = "undo_reject", "撤销退回"
 
 
 class ReviewLog(models.Model):
