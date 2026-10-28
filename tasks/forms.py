@@ -13,6 +13,12 @@ from .models import (
 User = get_user_model()
 
 
+def _user_option_label(user):
+    """Use the self-managed display name, with account as a fallback."""
+    name = user.get_short_name()
+    return name if name == user.account else "%s（%s）" % (name, user.account)
+
+
 # ---------------------------------------------------------------------------
 # 工作类型
 # ---------------------------------------------------------------------------
@@ -394,8 +400,7 @@ class TaskAssignmentForm(forms.Form):
             ).values_list("member_id", flat=True)
             candidates = candidates.exclude(pk__in=list(already))
         self.fields["members"].queryset = candidates
-        self.fields["members"].label_from_instance = \
-            lambda u: "%s（%s）" % (u.real_name, u.account)
+        self.fields["members"].label_from_instance = _user_option_label
 
     def clean_members(self):
         members = self.cleaned_data.get("members")
@@ -431,8 +436,7 @@ class ReviewerAssignmentForm(forms.Form):
             ).values_list("reviewer_id", flat=True)
             candidates = candidates.exclude(pk__in=list(already))
         self.fields["reviewers"].queryset = candidates
-        self.fields["reviewers"].label_from_instance = \
-            lambda u: "%s（%s）" % (u.real_name, u.account)
+        self.fields["reviewers"].label_from_instance = _user_option_label
 
     def clean_reviewers(self):
         reviewers = self.cleaned_data.get("reviewers")

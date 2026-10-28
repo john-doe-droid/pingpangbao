@@ -32,7 +32,7 @@
               {% for member in members %}
                 <tr>
                   <td class="pp-cell-lead" data-label="账号">{{ member.account }}</td>
-                  <td data-label="姓名">{{ member.real_name }}</td>
+                  <td data-label="姓名">{{ member.get_short_name }}</td>
                   <td data-label="状态">
                     {% if member.is_active %}
                       <span class="pp-status pp-status--success">

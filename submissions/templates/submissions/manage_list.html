@@ -84,7 +84,7 @@
                     {{ sub.competition.name }}
                   </td>
                   <td class="d-none d-lg-table-cell" data-label="提交人">
-                    {{ sub.assignment.member.real_name }}
+                    {{ sub.assignment.member.get_short_name }}
                   </td>
                   <td class="pp-num" data-label="状态">
                     {% if sub.status == 'pending' %}

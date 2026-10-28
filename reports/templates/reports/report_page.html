@@ -104,7 +104,7 @@
                 {% for m in member_options %}
                   <option value="{{ m.pk }}"
                     {% if filters.member_id == m.pk %}selected{% endif %}>
-                    {{ m.real_name }}（{{ m.account }}）</option>
+                    {{ m.get_short_name }}（{{ m.account }}）</option>
                 {% endfor %}
               </select>
             </div>

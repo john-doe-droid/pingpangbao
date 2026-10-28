@@ -453,6 +453,22 @@ class TestTaskConfigPages:
 @pytest.mark.django_db
 class TestAssignmentPages:
 
+    def test_assignment_uses_self_managed_display_name(
+            self, logged_in_client, admin_user, task, member_user):
+        member_user.display_name = "小李"
+        member_user.save(update_fields=["display_name"])
+        client = logged_in_client.as_(admin_user)
+        body = client.get(
+            reverse("tasks_admin:task_detail", args=[task.pk]),
+        ).content.decode("utf-8")
+        assert "小李" in body
+
+        from tasks.forms import TaskAssignmentForm
+
+        form = TaskAssignmentForm(task=task)
+        labels = dict(form.fields["members"].choices)
+        assert labels[member_user.pk] == "小李（M0001）"
+
     def test_assign_multiple_members(self, logged_in_client, admin_user, task,
                                      member_user, other_member):
         client = logged_in_client.as_(admin_user)

@@ -75,7 +75,9 @@
         <div class="pp-dl__row">
           <dt class="pp-dl__label">创建人</dt>
           <dd class="pp-dl__value">
-            {% if competition.created_by %}{{ competition.created_by.get_full_name }}{% else %}—{% endif %}
+            {% if competition.created_by %}
+              {{ competition.created_by.get_short_name }}（{{ competition.created_by.account }}）
+            {% else %}—{% endif %}
             <span class="pp-meta">· {{ competition.created_at|date:"Y-m-d H:i" }}</span>
           </dd>
         </div>
@@ -83,7 +85,9 @@
           <div class="pp-dl__row">
             <dt class="pp-dl__label">归档</dt>
             <dd class="pp-dl__value">
-              {% if competition.archived_by %}{{ competition.archived_by.get_full_name }}{% else %}—{% endif %}
+              {% if competition.archived_by %}
+                {{ competition.archived_by.get_short_name }}（{{ competition.archived_by.account }}）
+              {% else %}—{% endif %}
               <span class="pp-meta">· {{ competition.archived_at|date:"Y-m-d H:i" }}</span>
             </dd>
           </div>
@@ -114,7 +118,9 @@
         {% for assignment in reviewer_assignments %}
           <li class="pp-list__item pp-list__item--split">
             <span class="pp-list__main">
-              <span class="pp-list__name">{{ assignment.reviewer.get_full_name }}</span>
+              <span class="pp-list__name">
+                {{ assignment.reviewer.get_short_name }}（{{ assignment.reviewer.account }}）
+              </span>
             </span>
             <span class="pp-meta">授权于 {{ assignment.granted_at|date:"Y-m-d" }}</span>
           </li>

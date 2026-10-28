@@ -103,7 +103,7 @@
               {% for assignment in assignments %}
                 <tr>
                   <td class="pp-cell-lead pp-cell-primary" data-label="姓名">
-                    {{ assignment.member.real_name }}
+                    {{ assignment.member.get_short_name }}
                   </td>
                   <td class="d-none d-sm-table-cell" data-label="账号">
                     {{ assignment.member.account }}

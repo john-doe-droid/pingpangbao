@@ -432,7 +432,9 @@ def task_assign(request, pk):
                     created += 1
                     log_action(
                         request, "assignment.create", task,
-                        detail="分配给：%s" % member.get_full_name(),
+                        detail="分配给：%s（%s）" % (
+                            member.get_short_name(), member.account,
+                        ),
                     )
             except IntegrityError:
                 # 数据库部分唯一索引兜底：并发或绕过表单时不会产生重复分配
@@ -468,7 +470,10 @@ def assignment_deactivate(request, pk):
         if changed:
             log_action(
                 request, "assignment.deactivate", assignment.task,
-                detail="停用分配：%s" % assignment.member.get_full_name(),
+                detail="停用分配：%s（%s）" % (
+                    assignment.member.get_short_name(),
+                    assignment.member.account,
+                ),
             )
 
     if changed:

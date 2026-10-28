@@ -48,7 +48,7 @@
                     </div>
                   </td>
                   <td data-label="提交人">
-                    {{ sub.assignment.member.real_name }}
+                    {{ sub.assignment.member.get_short_name }}
                     <div class="pp-cell-sub">{{ sub.assignment.member.account }}</div>
                   </td>
                   <td class="d-none d-md-table-cell pp-cell-sub" data-label="提交时间">
@@ -106,7 +106,7 @@
                     <div class="pp-cell-sub">{{ sub.competition.name }}</div>
                   </td>
                   <td class="d-none d-md-table-cell" data-label="提交人">
-                    {{ sub.assignment.member.real_name }}
+                    {{ sub.assignment.member.get_short_name }}
                   </td>
                   <td class="pp-num" data-label="处理结果">
                     {% if sub.status == 'approved' %}

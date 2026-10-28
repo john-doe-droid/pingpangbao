@@ -41,7 +41,7 @@
         <div class="pp-dl__row">
           <dt class="pp-dl__label">提交人</dt>
           <dd class="pp-dl__value">
-            {{ submission.assignment.member.real_name }}
+            {{ submission.assignment.member.get_short_name }}
             （{{ submission.assignment.member.account }}）
           </dd>
         </div>

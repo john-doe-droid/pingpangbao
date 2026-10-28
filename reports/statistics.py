@@ -77,6 +77,7 @@ def by_member(user, filters) -> list[dict]:
             "assignment__member_id",
             "assignment__member__account",
             "assignment__member__real_name",
+            "assignment__member__display_name",
         )
         .annotate(
             total_records=Count("id", distinct=True),
@@ -118,7 +119,10 @@ def by_member(user, filters) -> list[dict]:
         rows.append({
             "member_id": item["assignment__member_id"],
             "account": item["assignment__member__account"],
-            "real_name": item["assignment__member__real_name"],
+            "real_name": (
+                item["assignment__member__display_name"]
+                or item["assignment__member__real_name"]
+            ),
             "total_records": item["total_records"] or 0,
             "version_count": item["version_count"] or 0,
             "pending": item["pending"] or 0,
@@ -202,7 +206,7 @@ def details(user, filters) -> list[dict]:
             "task_name": submission.task.name,
             "work_type_name": submission.task.work_type.name,
             "member_account": submission.assignment.member.account,
-            "member_name": submission.assignment.member.real_name,
+            "member_name": submission.assignment.member.get_short_name(),
             "status": submission.status,
             "status_label": submission.get_status_display(),
             "created_at": submission.created_at,
@@ -215,7 +219,7 @@ def details(user, filters) -> list[dict]:
                 latest_review.get_action_display() if latest_review else ""),
             "latest_review_comment": (latest_review.comment or "") if latest_review else "",
             "latest_reviewer": (
-                latest_review.reviewer.get_full_name()
+                latest_review.reviewer.get_short_name()
                 if latest_review and latest_review.reviewer else ""),
             "latest_review_at": latest_review.acted_at if latest_review else None,
         })

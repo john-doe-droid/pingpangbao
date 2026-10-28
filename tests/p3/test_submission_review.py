@@ -719,3 +719,17 @@ class TestArchived:
         assert Attachment.objects.filter(
             version__submission=submitted).count() == attachments_before
         assert submitted.versions.exists()
+
+
+@pytest.mark.django_db
+def test_submission_identity_uses_display_name(client, submitted, p3_member):
+    p3_member.display_name = "展示名小李"
+    p3_member.save(update_fields=["display_name"])
+    client.force_login(p3_member)
+
+    body = client.get(
+        reverse("submissions:detail", args=[submitted.pk]),
+    ).content.decode("utf-8")
+
+    assert "展示名小李" in body
+    assert "P3干事甲（P3M001）" not in body
